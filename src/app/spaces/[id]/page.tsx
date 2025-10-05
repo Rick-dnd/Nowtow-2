@@ -3,10 +3,11 @@
 import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { mockSpaces } from '@/lib/mock-data';
+import { useSpace } from '@/hooks/useSpaces';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
-import { Building2, MapPin, Users, Heart, Share2, Star, Square, Clock, AlertCircle, Check, Calendar } from 'lucide-react';
+import { ImageGallery } from '@/components/shared/ImageGallery';
+import { SimilarListingsCarousel } from '@/components/shared/SimilarListingsCarousel';
+import { Building2, MapPin, Users, Heart, Share2, Star, Clock, AlertCircle, Check, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -56,50 +57,65 @@ const spaceTypeLabels: Record<string, string> = {
 export default function SpaceDetailPage({ params }: PageProps): React.ReactElement {
   const { id } = React.use(params);
   const [date, setDate] = useState<DateRange | undefined>();
-  const [rentalType, setRentalType] = useState<'hourly' | 'daily' | 'weekly'>('hourly');
+  const [rentalType, setRentalType] = useState<'hourly' | 'daily'>('hourly');
 
-  // Find space by converting title to slug
-  const space = mockSpaces.find(
-    (s) => s.title.toLowerCase().replace(/\s+/g, '-') === id
-  );
+  // Fetch space from Supabase
+  const { data: space, isLoading, error } = useSpace(id);
 
-  if (!space) {
+  if (isLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 flex items-center justify-center">
+          <p className="text-muted-foreground">Lade Raum...</p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !space) {
     notFound();
   }
 
   const price =
     rentalType === 'hourly'
-      ? space.hourly_rate
+      ? space.hourly_price
       : rentalType === 'daily'
-        ? space.daily_rate
-        : space.weekly_rate;
+        ? space.daily_price
+        : 0;
 
   const priceLabel =
     rentalType === 'hourly'
       ? '/ Stunde'
-      : rentalType === 'daily'
-        ? '/ Tag'
-        : '/ Woche';
+      : '/ Tag';
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+  // Prepare gallery images
+  const galleryImages = space.image_url
+    ? [
+        { src: space.image_url, alt: space.name },
+        { src: space.image_url, alt: `${space.name} - Bild 2` },
+        { src: space.image_url, alt: `${space.name} - Bild 3` },
+        { src: space.image_url, alt: `${space.name} - Bild 4` },
+      ]
+    : [];
 
   return (
     <>
       <Header />
       <main className="min-h-screen pt-16">
         {/* Image Gallery */}
-        <div className="relative w-full h-[60vh] bg-muted">
-          {space.image_urls[0] ? (
-            <Image
-              src={space.image_urls[0]}
-              alt={space.title}
-              fill
-              className="object-cover"
-              priority
+        <div className="container mx-auto px-4 pt-4">
+          {galleryImages.length > 0 ? (
+            <ImageGallery
+              images={galleryImages}
+              className="grid-cols-1 md:grid-cols-4 md:grid-rows-2"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/20">
-              <Building2 className="h-32 w-32 text-emerald-600" />
+            <div className="aspect-video w-full flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg">
+              <Building2 className="h-32 w-32 text-blue-600" />
             </div>
           )}
         </div>
@@ -113,9 +129,9 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <Badge variant="secondary" className="mb-2">
-                      {spaceTypeLabels[space.space_type]}
+                      {space.type && spaceTypeLabels[space.type]}
                     </Badge>
-                    <h1 className="text-4xl font-bold mb-2">{space.title}</h1>
+                    <h1 className="text-4xl font-bold mb-2">{space.name}</h1>
                     <div className="flex items-center gap-4 text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -124,7 +140,7 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                       </div>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
-                        <span>{space.location_address.split(',')[0]}</span>
+                        <span>{space.address?.split(',')[0]}</span>
                       </div>
                     </div>
                   </div>
@@ -159,13 +175,6 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                 <h2 className="text-2xl font-semibold">Raum Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-start gap-3">
-                    <Square className="h-5 w-5 text-primary mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Größe</p>
-                      <p className="text-muted-foreground">{space.size_sqm}m²</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
                     <Users className="h-5 w-5 text-primary mt-0.5" />
                     <div>
                       <p className="font-semibold">Kapazität</p>
@@ -183,7 +192,7 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                     <MapPin className="h-5 w-5 text-primary mt-0.5" />
                     <div>
                       <p className="font-semibold">Location</p>
-                      <p className="text-muted-foreground">{space.location_address}</p>
+                      <p className="text-muted-foreground">{space.address}</p>
                     </div>
                   </div>
                 </div>
@@ -203,7 +212,7 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
               <div>
                 <h2 className="text-2xl font-semibold mb-4">Ausstattung & Features</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {space.amenities.map((amenity) => (
+                  {Array.isArray(space.amenities) && (space.amenities as string[]).map((amenity: string) => (
                     <div key={amenity} className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-primary" />
                       <span>{amenity}</span>
@@ -217,31 +226,21 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
               {/* Pricing Table */}
               <div>
                 <h2 className="text-2xl font-semibold mb-4">Preise</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-sm text-muted-foreground mb-2">Stündlich</p>
-                      <p className="text-3xl font-bold text-primary">€{space.hourly_rate}</p>
+                      <p className="text-3xl font-bold text-primary">€{space.hourly_price}</p>
                       <p className="text-sm text-muted-foreground">pro Stunde</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-sm text-muted-foreground mb-2">Täglich</p>
-                      <p className="text-3xl font-bold text-primary">€{space.daily_rate}</p>
+                      <p className="text-3xl font-bold text-primary">€{space.daily_price}</p>
                       <p className="text-sm text-muted-foreground">pro Tag</p>
                       <Badge variant="secondary" className="mt-2">
-                        Spare {Math.round((1 - (space.daily_rate ?? 0) / (space.hourly_rate * 10)) * 100)}%
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Wöchentlich</p>
-                      <p className="text-3xl font-bold text-primary">€{space.weekly_rate}</p>
-                      <p className="text-sm text-muted-foreground">pro Woche</p>
-                      <Badge variant="secondary" className="mt-2">
-                        Spare {Math.round((1 - (space.weekly_rate ?? 0) / ((space.daily_rate ?? 0) * 7)) * 100)}%
+                        Spare {Math.round((1 - (space.daily_price ?? 0) / ((space.hourly_price ?? 0) * 10)) * 100)}%
                       </Badge>
                     </CardContent>
                   </Card>
@@ -253,11 +252,11 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
               {/* Location Map */}
               <div>
                 <h2 className="text-2xl font-semibold mb-4">Standort</h2>
-                {apiKey ? (
+                {apiKey && space.latitude && space.longitude ? (
                   <div className="h-[400px] rounded-lg overflow-hidden">
                     <APIProvider apiKey={apiKey}>
                       <Map
-                        defaultCenter={{ lat: space.location_lat, lng: space.location_lng }}
+                        defaultCenter={{ lat: space.latitude, lng: space.longitude }}
                         defaultZoom={15}
                         mapId="space-detail-map"
                         gestureHandling="greedy"
@@ -266,7 +265,7 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                         mapTypeControl={false}
                         mapTypeId="roadmap"
                       >
-                        <AdvancedMarker position={{ lat: space.location_lat, lng: space.location_lng }}>
+                        <AdvancedMarker position={{ lat: space.latitude, lng: space.longitude }}>
                           <Pin background="#10b981" borderColor="#059669" glyphColor="#d1fae5" />
                         </AdvancedMarker>
                       </Map>
@@ -355,14 +354,13 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                       {/* Rental Type */}
                       <div>
                         <label className="text-sm font-semibold block mb-2">Mietdauer</label>
-                        <Select value={rentalType} onValueChange={(value) => setRentalType(value as 'hourly' | 'daily' | 'weekly')}>
+                        <Select value={rentalType} onValueChange={(value) => setRentalType(value as 'hourly' | 'daily')}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="hourly">Stündlich</SelectItem>
                             <SelectItem value="daily">Täglich</SelectItem>
-                            <SelectItem value="weekly">Wöchentlich</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -500,6 +498,15 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                 </Card>
               </div>
             </div>
+          </div>
+
+          {/* Similar Spaces Carousel */}
+          <div className="mt-12">
+            <SimilarListingsCarousel
+              title="Ähnliche Räume"
+              items={[]}
+              type="spaces"
+            />
           </div>
         </div>
       </main>

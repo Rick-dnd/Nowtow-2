@@ -127,9 +127,35 @@ src/
 │   ├── supabase/
 │   │   └── client.ts             # Supabase client configuration
 │   ├── utils.ts                  # cn() utility (clsx + tailwind-merge)
-│   └── mock-data.ts              # Development mock data
+│   └── placeholder-data.ts       # Empty arrays for empty states only
 │
-├── hooks/                        # Custom React hooks
+├── services/                     # Service layer (Supabase data access)
+│   ├── events.service.ts         # Event CRUD operations
+│   ├── spaces.service.ts         # Space CRUD operations
+│   ├── services.service.ts       # Services CRUD operations
+│   ├── bookings.service.ts       # Booking operations
+│   ├── reviews.service.ts        # Review operations
+│   ├── blog.service.ts           # Blog operations
+│   ├── community.service.ts      # Community posts
+│   ├── stories.service.ts        # Stories with 24h auto-delete
+│   ├── messaging.service.ts      # Messaging operations
+│   ├── auth.service.ts           # Authentication
+│   └── storage.service.ts        # File uploads
+│
+├── hooks/                        # Custom React hooks wrapping services
+│   ├── useEvents.ts              # TanStack Query hooks for events
+│   ├── useSpaces.ts              # TanStack Query hooks for spaces
+│   ├── useServices.ts            # TanStack Query hooks for services
+│   ├── useBookings.ts            # Booking hooks
+│   ├── useReviews.ts             # Review hooks
+│   ├── useCommunity.ts           # Community hooks
+│   ├── useStories.ts             # Stories hooks
+│   ├── useBlog.ts                # Blog hooks
+│   ├── useMessaging.ts           # Messaging hooks
+│   ├── useAuth.ts                # Auth hooks
+│   ├── useUpload.ts              # Upload hooks
+│   ├── useRealtime.ts            # Supabase Realtime hooks
+│   ├── useGeolocation.ts         # Geolocation hooks
 │   └── use-mobile.ts             # Mobile breakpoint detection
 │
 └── types/                        # TypeScript type definitions
@@ -157,25 +183,133 @@ src/
 - Follows "data-slot" pattern for styling hooks
 - **All components must have explicit return types**: `: React.ReactElement`
 
-**4. Data Fetching Pattern**
-- TanStack Query for server state
-- Zustand for client state (if needed)
-- Mock data in `src/lib/mock-data.ts` for development
+**4. Service Layer Architecture (CRITICAL PATTERN)**
 
-**5. Map Components**
-- Uses `@vis.gl/react-google-maps`
-- Map components in `src/components/events/EventsMap.tsx` and `src/components/spaces/SpacesMap.tsx`
+This app uses a **3-layer data architecture**. ALWAYS follow this pattern:
+
+**Layer 1: Services** (`src/services/*.service.ts`)
+- Export typed CRUD functions that call Supabase directly
+- Export filter interfaces for type safety
+- Handle all Supabase query building, filtering, sorting
+- Return plain Promise types
+
+Example:
+```typescript
+// src/services/events.service.ts
+export interface EventFilters {
+  category?: string | null;
+  city?: string;
+  maxPrice?: number;
+  searchQuery?: string;
+}
+
+export const eventsService = {
+  async getEvents(filters?: EventFilters): Promise<Event[]> {
+    const supabase = createClient();
+    let query = supabase.from('events').select('*');
+
+    if (filters?.category) query = query.eq('category', filters.category);
+    if (filters?.searchQuery) query = query.ilike('name', `%${filters.searchQuery}%`);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getEventById(id: string): Promise<Event | null> { ... }
+}
+```
+
+**Layer 2: Hooks** (`src/hooks/use*.ts`)
+- Wrap services with TanStack Query hooks
+- Handle loading states, caching, refetching
+- Export typed query/mutation hooks
+- Configure staleTime, gcTime, etc.
+
+Example:
+```typescript
+// src/hooks/useEvents.ts
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { eventsService, type EventFilters } from '@/services/events.service';
+
+export function useEvents(filters?: EventFilters): UseQueryResult<Event[], Error> {
+  return useQuery({
+    queryKey: ['events', filters],
+    queryFn: () => eventsService.getEvents(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useEvent(id: string | undefined): UseQueryResult<Event | null, Error> {
+  return useQuery({
+    queryKey: ['events', id],
+    queryFn: () => {
+      if (!id) throw new Error('Event ID is required');
+      return eventsService.getEventById(id);
+    },
+    enabled: !!id,
+  });
+}
+```
+
+**Layer 3: Components** (use hooks only)
+- NEVER import services directly
+- ALWAYS use hooks for data fetching
+- Handle loading/error states in UI
+- Use empty arrays `[]` for fallbacks, never mock data
+
+Example:
+```typescript
+// src/components/events/EventsList.tsx
+export function EventsList({ filters }: Props): React.ReactElement {
+  const { data: events, isLoading, error } = useEvents(filters);
+
+  if (isLoading) return <LoadingState />;
+  if (error) return <ErrorState error={error} />;
+
+  return (
+    <div>
+      {(events || []).map((event) => (
+        <EventCard key={event.id} event={event} />
+      ))}
+    </div>
+  );
+}
+```
+
+**CRITICAL RULES:**
+- ✅ Components call hooks → Hooks call services → Services call Supabase
+- ❌ NEVER use mock data in components
+- ❌ NEVER call services directly from components
+- ❌ NEVER call Supabase client directly from components
+- ✅ Use `(data || [])` for safe array iteration
+- ✅ Always handle `isLoading` and `error` states
+
+**5. Map Components with Marker Clustering**
+- Uses `@vis.gl/react-google-maps` (NOT `@react-google-maps/api`)
+- Marker clustering via `@googlemaps/markerclusterer`
+- Map components: `EventsMap.tsx`, `SpacesMap.tsx`
+- Pattern: `<Map>` wraps `<ClusteredMarkers>` component
 - Props are flattened (no nested `options` object)
+- Markers only render items with `latitude` and `longitude`
 
 **6. Table Pattern (Dashboard)**
-- TanStack Table in `src/app/dashboard/events/page.tsx`
-- Explicit typing: `Row<T>`, `Cell<T>`, `Header<T>`, `HeaderGroup<T>`
-- Type annotations on map functions for cells and headers
+- Uses TanStack Table v8
+- Explicit typing required: `Row<T>`, `Cell<T>`, `Header<T>`, `HeaderGroup<T>`
+- Type annotations on ALL map functions for cells and headers
+- Example: `columns.map((header: Header<Event, unknown>) => ...)`
 
 **7. Form Handling**
 - React Hook Form + Zod validation
 - shadcn/ui form components with proper type inference
 - `useFormField` hook provides form context
+- All form schemas defined with Zod
+
+**8. Animations**
+- **Page transitions:** Framer Motion
+- **Scroll effects:** GSAP
+- **Carousels:** Embla Carousel
+- Stories viewer: `react-insta-stories`
 
 ## Important Type Safety Notes
 
@@ -214,6 +348,24 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 ```
 
+## Database Schema (Supabase PostgreSQL)
+
+Key tables in the database (all typed in `src/types/database.ts`):
+- `events` - Event listings with organizer, location, pricing
+- `spaces` - Space rentals (hourly/daily pricing, capacity, amenities)
+- `services` - Service marketplace listings
+- `bookings` - Bookings for events/spaces/services
+- `reviews` - Reviews with ratings
+- `community_posts` - Community feed posts
+- `community_stories` - Stories with 24h auto-delete (expires_at timestamp)
+- `blog_posts` - Blog articles with categories
+- `profiles` - User profiles linked to Supabase auth
+- `messages` / `conversations` - Messaging system
+- `notifications` - User notifications
+
+**Database Type Generation:**
+Types are auto-generated from Supabase and should NOT be manually edited. Use Supabase CLI to regenerate if schema changes.
+
 ## Critical Rules for Code Changes
 
 1. **NEVER use `any` type** - Always define proper types or use generics
@@ -221,9 +373,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 3. **ALWAYS handle null/undefined** with `?.` or `??` operators
 4. **ALWAYS type React event handlers** explicitly
 5. **NEVER commit without passing** `npm run lint` and `npm run type-check`
-6. When editing shadcn/ui components, maintain the `: React.ReactElement` pattern
-7. Use `React.ReactElement` for component return types, not `JSX.Element`
-8. For hooks returning cleanup functions, use `: (() => void) | void` for useEffect
+6. **NEVER use mock data** - all data must come from Supabase via hooks
+7. **ALWAYS follow 3-layer architecture** - Components → Hooks → Services → Supabase
+8. When editing shadcn/ui components, maintain the `: React.ReactElement` pattern
+9. Use `React.ReactElement` for component return types, not `JSX.Element`
+10. For hooks returning cleanup functions, use `: (() => void) | void` for useEffect
+11. For TanStack Table, ALWAYS add explicit types to map callbacks
+12. Use `(data || [])` pattern for safe array operations on query results
 
 ## Testing Commands
 

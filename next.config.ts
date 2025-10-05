@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
       '@': './src',
     },
   },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
 };
 
 export default nextConfig;

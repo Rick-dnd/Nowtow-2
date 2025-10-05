@@ -3,9 +3,10 @@
 import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { mockEvents } from '@/lib/mock-data';
+import { useEvent } from '@/hooks/useEvents';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
+import { ImageGallery } from '@/components/shared/ImageGallery';
+import { SimilarListingsCarousel } from '@/components/shared/SimilarListingsCarousel';
 import { Calendar, MapPin, Users, Heart, Share2, Star, Clock, AlertCircle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -51,38 +52,56 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
   const [date, setDate] = useState<DateRange | undefined>();
   const [guests, setGuests] = useState(2);
 
-  // Find event by converting title to slug
-  const event = mockEvents.find(
-    (e) => e.title.toLowerCase().replace(/\s+/g, '-') === id
-  );
+  // Fetch event from Supabase
+  const { data: event, isLoading, error } = useEvent(id);
 
-  if (!event) {
+  if (isLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 flex items-center justify-center">
+          <p className="text-muted-foreground">Lade Event...</p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !event) {
     notFound();
   }
 
-  const eventDate = new Date(event.start_time);
-  const endDate = new Date(event.end_time);
-  const bookedSpots = Math.floor(event.capacity * 0.5); // 50% booked
-  const bookingProgress = (bookedSpots / event.capacity) * 100;
+  const eventDate = new Date(event.start_datetime);
+  const endDate = new Date(event.end_datetime);
+  const bookedSpots = event.current_attendees ?? 0;
+  const bookingProgress = event.max_attendees ? (bookedSpots / event.max_attendees) * 100 : 0;
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+  // Prepare gallery images
+  const galleryImages = event.image_url
+    ? [
+        { src: event.image_url, alt: event.name },
+        // Mock additional images - in real app these would come from event.gallery_images
+        { src: event.image_url, alt: `${event.name} - Bild 2` },
+        { src: event.image_url, alt: `${event.name} - Bild 3` },
+        { src: event.image_url, alt: `${event.name} - Bild 4` },
+      ]
+    : [];
 
   return (
     <>
       <Header />
       <main className="min-h-screen pt-16">
         {/* Image Gallery */}
-        <div className="relative w-full h-[60vh] bg-muted">
-          {event.image_urls[0] ? (
-            <Image
-              src={event.image_urls[0]}
-              alt={event.title}
-              fill
-              className="object-cover"
-              priority
+        <div className="container mx-auto px-4 pt-4">
+          {galleryImages.length > 0 ? (
+            <ImageGallery
+              images={galleryImages}
+              className="grid-cols-1 md:grid-cols-4 md:grid-rows-2"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/20">
+            <div className="aspect-video w-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-lg">
               <Calendar className="h-32 w-32 text-emerald-600" />
             </div>
           )}
@@ -97,9 +116,9 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <Badge variant="secondary" className="mb-2">
-                      {categoryLabels[event.category]}
+                      {event.category ? categoryLabels[event.category] : 'Event'}
                     </Badge>
-                    <h1 className="text-4xl font-bold mb-2">{event.title}</h1>
+                    <h1 className="text-4xl font-bold mb-2">{event.name}</h1>
                     <div className="flex items-center gap-4 text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -108,7 +127,7 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                       </div>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
-                        <span>{event.location_address.split(',')[0]}</span>
+                        <span>{event.address?.split(',')[0] || event.city}</span>
                       </div>
                     </div>
                   </div>
@@ -164,10 +183,10 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                     <Users className="h-5 w-5 text-primary mt-0.5" />
                     <div>
                       <p className="font-semibold">Kapazität</p>
-                      <p className="text-muted-foreground">{bookedSpots} / {event.capacity} gebucht</p>
+                      <p className="text-muted-foreground">{bookedSpots} / {event.max_attendees || 0} gebucht</p>
                       <Progress value={bookingProgress} className="mt-2 h-2" />
                       <p className="text-sm text-muted-foreground mt-1">
-                        ⏰ {event.capacity - bookedSpots} Plätze frei
+                        ⏰ {(event.max_attendees || 0) - bookedSpots} Plätze frei
                       </p>
                     </div>
                   </div>
@@ -175,7 +194,7 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                     <MapPin className="h-5 w-5 text-primary mt-0.5" />
                     <div>
                       <p className="font-semibold">Location</p>
-                      <p className="text-muted-foreground">{event.location_address}</p>
+                      <p className="text-muted-foreground">{event.address}</p>
                     </div>
                   </div>
                 </div>
@@ -211,11 +230,11 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
               {/* Location Map */}
               <div>
                 <h2 className="text-2xl font-semibold mb-4">Standort</h2>
-                {apiKey ? (
+                {apiKey && event.latitude && event.longitude ? (
                   <div className="h-[400px] rounded-lg overflow-hidden">
                     <APIProvider apiKey={apiKey}>
                       <Map
-                        defaultCenter={{ lat: event.location_lat, lng: event.location_lng }}
+                        defaultCenter={{ lat: event.latitude, lng: event.longitude }}
                         defaultZoom={15}
                         mapId="event-detail-map"
                         gestureHandling="greedy"
@@ -224,7 +243,7 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                         mapTypeControl={false}
                         mapTypeId="roadmap"
                       >
-                        <AdvancedMarker position={{ lat: event.location_lat, lng: event.location_lng }}>
+                        <AdvancedMarker position={{ lat: event.latitude, lng: event.longitude }}>
                           <Pin background="#10b981" borderColor="#059669" glyphColor="#d1fae5" />
                         </AdvancedMarker>
                       </Map>
@@ -232,7 +251,7 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                   </div>
                 ) : (
                   <div className="h-[400px] bg-muted rounded-lg flex items-center justify-center">
-                    <p className="text-muted-foreground">Google Maps API Key nicht konfiguriert</p>
+                    <p className="text-muted-foreground">Karte nicht verfügbar</p>
                   </div>
                 )}
               </div>
@@ -302,9 +321,9 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                     <div className="mb-4">
                       <div className="flex items-baseline gap-1 mb-2">
                         <span className="text-3xl font-bold">
-                          {event.price === 0 ? 'Kostenlos' : `€${event.price}`}
+                          {!event.ticket_price || event.ticket_price === 0 ? 'Kostenlos' : `€${event.ticket_price}`}
                         </span>
-                        {event.price > 0 && <span className="text-muted-foreground">/ Person</span>}
+                        {event.ticket_price && event.ticket_price > 0 && <span className="text-muted-foreground">/ Person</span>}
                       </div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -357,7 +376,7 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => setGuests(Math.min(event.capacity - bookedSpots, guests + 1))}
+                            onClick={() => setGuests(Math.min((event.max_attendees || 0) - bookedSpots, guests + 1))}
                           >
                             +
                           </Button>
@@ -370,18 +389,18 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>
-                            €{event.price} x {guests} Gäste
+                            €{event.ticket_price || 0} x {guests} Gäste
                           </span>
-                          <span>€{event.price * guests}</span>
+                          <span>€{(event.ticket_price || 0) * guests}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Service Gebühr</span>
-                          <span>€{Math.ceil(event.price * guests * 0.1)}</span>
+                          <span>€{Math.ceil((event.ticket_price || 0) * guests * 0.1)}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-semibold">
                           <span>Gesamt</span>
-                          <span>€{event.price * guests + Math.ceil(event.price * guests * 0.1)}</span>
+                          <span>€{(event.ticket_price || 0) * guests + Math.ceil((event.ticket_price || 0) * guests * 0.1)}</span>
                         </div>
                       </div>
 
@@ -459,6 +478,15 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                 </Card>
               </div>
             </div>
+          </div>
+
+          {/* Similar Events Carousel */}
+          <div className="mt-12">
+            <SimilarListingsCarousel
+              title="Ähnliche Events"
+              items={[]}
+              type="events"
+            />
           </div>
         </div>
       </main>

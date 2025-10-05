@@ -15,9 +15,13 @@ import { Button } from '@/components/ui/button';
 import { Users, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import Autoplay from 'embla-carousel-autoplay';
-import { mockEvents, mockSpaces } from '@/lib/mock-data';
+import { useEvents } from '@/hooks/useEvents';
+import { useSpaces } from '@/hooks/useSpaces';
 
 export function HighlightsSection(): React.ReactElement {
+  // Fetch events and spaces from Supabase
+  const { data: events } = useEvents({ limit: 10 });
+  const { data: spaces } = useSpaces({ limit: 10 });
   return (
     <section className="py-20 bg-muted/30">
       <div className="container mx-auto px-4">
@@ -67,7 +71,7 @@ export function HighlightsSection(): React.ReactElement {
             className="w-full"
           >
             <CarouselContent className="-ml-4">
-              {mockSpaces.map((space, index) => (
+              {(spaces || []).map((space, index) => (
                 <CarouselItem key={index} className="pl-4 md:basis-1/2 lg:basis-1/3">
                   <SpaceCard space={space} />
                 </CarouselItem>
@@ -110,7 +114,7 @@ export function HighlightsSection(): React.ReactElement {
             className="w-full"
           >
             <CarouselContent className="-ml-4">
-              {mockEvents.map((event, index) => (
+              {(events || []).map((event, index) => (
                 <CarouselItem key={index} className="pl-4 md:basis-1/2 lg:basis-1/3">
                   <EventCard event={event} />
                 </CarouselItem>

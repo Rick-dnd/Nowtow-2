@@ -6,6 +6,8 @@ import { Footer } from '@/components/layout/Footer';
 import { EventsFilterSidebar } from '@/components/events/EventsFilterSidebar';
 import { EventsList } from '@/components/events/EventsList';
 import { EventsMap } from '@/components/events/EventsMap';
+import { ViewControls, type ViewMode, type SortOption } from '@/components/shared/ViewControls';
+import { useEvents } from '@/hooks/useEvents';
 
 export interface EventFilters {
   search: string;
@@ -24,6 +26,29 @@ export default function EventsPage(): React.ReactElement {
     capacity: 1,
   });
 
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
+
+  // Fetch events from Supabase
+  const { data: events } = useEvents({
+    searchQuery: filters.search,
+    category: filters.categories.length > 0 ? filters.categories[0] : undefined,
+    maxPrice: filters.priceRange[1],
+  });
+
+  // Calculate filtered count
+  const filteredCount = (events || []).filter((event) => {
+    const eventPrice = Number(event.ticket_price) || 0;
+    if (eventPrice < filters.priceRange[0] || eventPrice > filters.priceRange[1]) {
+      return false;
+    }
+    const eventCapacity = event.max_attendees || 0;
+    if (eventCapacity < filters.capacity) {
+      return false;
+    }
+    return true;
+  }).length;
+
   return (
     <>
       <Header />
@@ -35,9 +60,20 @@ export default function EventsPage(): React.ReactElement {
             <EventsFilterSidebar filters={filters} onFiltersChange={setFilters} />
           </div>
 
+          {/* View Controls */}
+          <div className="px-4 py-3 border-b border-border bg-muted/30">
+            <ViewControls
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              resultsCount={filteredCount}
+            />
+          </div>
+
           {/* Events List */}
           <div className="flex-1 overflow-y-auto">
-            <EventsList filters={filters} />
+            <EventsList filters={filters} viewMode={viewMode} sortBy={sortBy} />
           </div>
         </div>
 

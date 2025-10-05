@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Search, Calendar as CalendarIcon, Building2, Briefcase, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -35,6 +37,7 @@ export function HeroSection(): React.ReactElement {
   const [searchType, setSearchType] = useState<string>('');
   const [date, setDate] = useState<DateRange | undefined>();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect((): (() => void) => {
     const interval = setInterval((): void => {
@@ -42,6 +45,30 @@ export function HeroSection(): React.ReactElement {
     }, 5000);
 
     return (): void => clearInterval(interval);
+  }, []);
+
+  // GSAP ScrollTrigger setup
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    if (contentRef.current) {
+      // Parallax effect on hero content
+      gsap.to(contentRef.current, {
+        y: -50,
+        opacity: 0.8,
+        scrollTrigger: {
+          trigger: contentRef.current,
+          start: 'top top',
+          end: 'bottom top',
+          scrub: 1,
+        },
+      });
+    }
+
+    // Cleanup
+    return (): void => {
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    };
   }, []);
 
   const scrollToHighlights = (): void => {
@@ -76,7 +103,7 @@ export function HeroSection(): React.ReactElement {
       </div>
 
       {/* Content */}
-      <div className="relative z-20 container mx-auto px-4 text-center">
+      <div ref={contentRef} className="relative z-20 container mx-auto px-4 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -3,9 +3,8 @@
 import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { mockServices } from '@/lib/mock-data';
+import { useService } from '@/hooks/useServices';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import { Briefcase, Heart, Share2, Star, Check, AlertCircle, Calendar, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,12 +80,22 @@ const servicePackages = [
 export default function ServiceDetailPage({ params }: PageProps): React.ReactElement {
   const { id } = React.use(params);
 
-  // Find service by converting title to slug
-  const service = mockServices.find(
-    (s) => s.title.toLowerCase().replace(/\s+/g, '-') === id
-  );
+  // Fetch service from Supabase
+  const { data: service, isLoading, error } = useService(id);
 
-  if (!service) {
+  if (isLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 flex items-center justify-center">
+          <p className="text-muted-foreground">Lade Service...</p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !service) {
     notFound();
   }
 
@@ -94,21 +103,11 @@ export default function ServiceDetailPage({ params }: PageProps): React.ReactEle
     <>
       <Header />
       <main className="min-h-screen pt-16">
-        {/* Hero Image */}
+        {/* Hero Image - Services use separate service_images table */}
         <div className="relative w-full h-[60vh] bg-muted">
-          {service.image_urls[0] ? (
-            <Image
-              src={service.image_urls[0]}
-              alt={service.title}
-              fill
-              className="object-cover"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/20">
-              <Briefcase className="h-32 w-32 text-emerald-600" />
-            </div>
-          )}
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/20">
+            <Briefcase className="h-32 w-32 text-emerald-600" />
+          </div>
         </div>
 
         <div className="container mx-auto px-4 py-8">
@@ -120,7 +119,7 @@ export default function ServiceDetailPage({ params }: PageProps): React.ReactEle
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <Badge variant="secondary" className="mb-2">
-                      {categoryLabels[service.category]}
+                      {service.category && categoryLabels[service.category]}
                     </Badge>
                     <h1 className="text-4xl font-bold mb-2">{service.title}</h1>
                     <div className="flex items-center gap-4 text-muted-foreground">

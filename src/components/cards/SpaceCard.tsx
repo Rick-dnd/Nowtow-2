@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Building2, MapPin, Users, Heart, Square } from 'lucide-react';
+import { Building2, MapPin, Users, Heart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ interface SpaceCardProps {
   space: Omit<Space, 'id' | 'created_at' | 'updated_at'>;
 }
 
-const spaceTypeLabels: Record<Space['space_type'], string> = {
+const spaceTypeLabels: Record<NonNullable<Space['type']>, string> = {
   'tonstudio': 'Tonstudio',
   'fotostudio': 'Fotostudio',
   'werkstaetten': 'Werkstätten',
@@ -26,6 +26,8 @@ const spaceTypeLabels: Record<Space['space_type'], string> = {
 };
 
 export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
+  const amenities = Array.isArray(space.amenities) ? space.amenities : [];
+
   return (
     <motion.div
       whileHover={{ scale: 1.02, y: -4 }}
@@ -35,10 +37,10 @@ export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
       <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow">
         {/* Image */}
         <div className="relative aspect-video bg-muted">
-          {space.image_urls[0] ? (
+          {space.image_url ? (
             <Image
-              src={space.image_urls[0]}
-              alt={space.title}
+              src={space.image_url}
+              alt={space.name}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -50,7 +52,7 @@ export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
           )}
           <div className="absolute top-3 left-3">
             <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
-              {spaceTypeLabels[space.space_type]}
+              {space.type && spaceTypeLabels[space.type]}
             </Badge>
           </div>
           <Button
@@ -65,7 +67,7 @@ export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
 
         {/* Content */}
         <CardContent className="p-4 flex-1 flex flex-col">
-          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{space.title}</h3>
+          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{space.name}</h3>
 
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
             {space.description}
@@ -74,37 +76,35 @@ export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
           <div className="space-y-2 text-sm text-muted-foreground mb-3">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              <span className="line-clamp-1">{space.location_address}</span>
+              <span className="line-clamp-1">{space.address}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Square className="h-4 w-4" />
-              <span>{space.size_sqm}m²</span>
-              <Users className="h-4 w-4 ml-2" />
+              <Users className="h-4 w-4" />
               <span>bis {space.capacity} Personen</span>
             </div>
           </div>
 
           {/* Amenities */}
           <div className="flex flex-wrap gap-1 mb-3">
-            {space.amenities.slice(0, 3).map((amenity) => (
+            {(amenities as string[]).slice(0, 3).map((amenity: string) => (
               <Badge key={amenity} variant="outline" className="text-xs">
                 {amenity}
               </Badge>
             ))}
-            {space.amenities.length > 3 && (
+            {amenities.length > 3 && (
               <Badge variant="outline" className="text-xs">
-                +{space.amenities.length - 3}
+                +{amenities.length - 3}
               </Badge>
             )}
           </div>
 
           <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
             <div>
-              <span className="text-lg font-bold">€{space.hourly_rate}</span>
+              <span className="text-lg font-bold">€{space.hourly_price}</span>
               <span className="text-sm text-muted-foreground">/Stunde</span>
             </div>
             <Button asChild>
-              <Link href={`/spaces/${space.title.toLowerCase().replace(/\s+/g, '-')}`}>
+              <Link href={`/spaces/${space.name.toLowerCase().replace(/\s+/g, '-')}`}>
                 Details
               </Link>
             </Button>

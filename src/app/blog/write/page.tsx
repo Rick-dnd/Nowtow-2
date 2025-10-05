@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
+import { RichTextEditor } from '@/components/blog/RichTextEditor';
 
 const categories = [
   'Events & Culture',
@@ -37,6 +37,7 @@ export default function BlogWritePage(): React.ReactElement {
   const [tagInput, setTagInput] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [isDraft] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleAddTag = (): void => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -74,9 +75,9 @@ export default function BlogWritePage(): React.ReactElement {
               <Save className="mr-2 h-4 w-4" />
               Entwurf speichern
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setShowPreview(!showPreview)}>
               <Eye className="mr-2 h-4 w-4" />
-              Vorschau
+              {showPreview ? 'Editor' : 'Vorschau'}
             </Button>
             <Button className="bg-gradient-to-r from-primary to-accent" onClick={handlePublish}>
               <Send className="mr-2 h-4 w-4" />
@@ -135,16 +136,23 @@ export default function BlogWritePage(): React.ReactElement {
             {/* Content Editor */}
             <div className="space-y-2">
               <Label htmlFor="content">Inhalt *</Label>
-              <Textarea
-                id="content"
-                placeholder="Schreibe deinen Artikel... (Markdown wird unterstützt)"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="min-h-[400px] font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Markdown wird unterstützt: **fett**, *kursiv*, [Link](url), # Überschrift
-              </p>
+              {showPreview ? (
+                <Card>
+                  <CardContent className="p-6">
+                    <div
+                      className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none"
+                      dangerouslySetInnerHTML={{ __html: content || '<p className="text-muted-foreground">Keine Vorschau verfügbar</p>' }}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <RichTextEditor
+                  content={content}
+                  onChange={setContent}
+                  autosave={true}
+                  autosaveKey="blog-draft"
+                />
+              )}
             </div>
           </div>
 

@@ -13,7 +13,7 @@ interface EventCardProps {
   event: Omit<Event, 'id' | 'created_at' | 'updated_at'>;
 }
 
-const categoryLabels: Record<Event['category'], string> = {
+const categoryLabels: Record<NonNullable<Event['category']>, string> = {
   'kunst-kreativ': 'Kunst & Kreativ',
   'musik-performance': 'Musik & Performance',
   'sport-fitness': 'Sport & Fitness',
@@ -25,7 +25,7 @@ const categoryLabels: Record<Event['category'], string> = {
 };
 
 export function EventCard({ event }: EventCardProps): React.ReactElement {
-  const eventDate = new Date(event.start_time);
+  const eventDate = new Date(event.start_datetime);
   const formattedDate = eventDate.toLocaleDateString('de-DE', {
     weekday: 'short',
     day: 'numeric',
@@ -45,10 +45,10 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
       <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow">
         {/* Image */}
         <div className="relative aspect-video bg-muted">
-          {event.image_urls[0] ? (
+          {event.image_url ? (
             <Image
-              src={event.image_urls[0]}
-              alt={event.title}
+              src={event.image_url}
+              alt={event.name}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -60,7 +60,7 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
           )}
           <div className="absolute top-3 left-3">
             <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
-              {categoryLabels[event.category]}
+              {event.category && categoryLabels[event.category]}
             </Badge>
           </div>
           <Button
@@ -75,7 +75,7 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
 
         {/* Content */}
         <CardContent className="p-4 flex-1 flex flex-col">
-          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{event.title}</h3>
+          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{event.name}</h3>
 
           <div className="space-y-2 text-sm text-muted-foreground mb-3">
             <div className="flex items-center gap-2">
@@ -86,25 +86,25 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              <span className="line-clamp-1">{event.location_address}</span>
+              <span className="line-clamp-1">{event.address}</span>
             </div>
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>{event.capacity} Teilnehmer</span>
+              <span>{event.current_attendees} / {event.max_attendees} Teilnehmer</span>
             </div>
           </div>
 
           <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
             <div>
               <span className="text-lg font-bold">
-                {event.price === 0 ? 'Kostenlos' : `€${event.price}`}
+                {event.ticket_price === 0 || event.ticket_price === null ? 'Kostenlos' : `€${event.ticket_price}`}
               </span>
-              {event.price > 0 && (
+              {event.ticket_price !== null && event.ticket_price > 0 && (
                 <span className="text-sm text-muted-foreground">/Person</span>
               )}
             </div>
             <Button asChild>
-              <Link href={`/events/${event.title.toLowerCase().replace(/\s+/g, '-')}`}>
+              <Link href={`/events/${event.name.toLowerCase().replace(/\s+/g, '-')}`}>
                 Details
               </Link>
             </Button>

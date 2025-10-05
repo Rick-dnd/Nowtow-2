@@ -2,6 +2,7 @@
 
 import { Heart, MessageCircle, Share2, MoreHorizontal, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PollDisplay, PollDisplayData } from './PollDisplay';
 
 interface PostCardProps {
   post: {
@@ -16,10 +17,18 @@ interface PostCardProps {
     likes: number;
     comments: number;
     visibility: string;
+    poll?: PollDisplayData;
   };
+  onVote?: (postId: string, optionIndices: number[]) => void;
 }
 
-export function PostCard({ post }: PostCardProps): React.ReactElement {
+export function PostCard({ post, onVote }: PostCardProps): React.ReactElement {
+  const handleVote = (optionIndices: number[]): void => {
+    if (onVote) {
+      onVote(post.id, optionIndices);
+    }
+  };
+
   return (
     <div className="bg-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
       {/* Post Header */}
@@ -46,6 +55,13 @@ export function PostCard({ post }: PostCardProps): React.ReactElement {
       <div className="mb-3">
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </div>
+
+      {/* Poll (if exists) */}
+      {post.poll && (
+        <div className="mb-3">
+          <PollDisplay pollData={post.poll} onVote={handleVote} />
+        </div>
+      )}
 
       {/* Post Images (if any) */}
       {post.images?.length > 0 && (

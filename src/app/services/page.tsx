@@ -5,7 +5,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ServiceCard } from '@/components/services/ServiceCard';
-import { mockServices } from '@/lib/mock-data';
+import { useServices } from '@/hooks/useServices';
 
 const categories = [
   { id: 'koeche', label: 'Köch:innen' },
@@ -17,6 +17,8 @@ const categories = [
 ];
 
 export default function ServicesPage(): React.ReactElement {
+  // Fetch services from Supabase
+  const { data: services } = useServices();
   return (
     <>
       <Header />
@@ -76,7 +78,7 @@ export default function ServicesPage(): React.ReactElement {
               {/* Horizontal Scroll Container */}
               <div className="relative">
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-                  {mockServices.map((service, index) => (
+                  {(services || []).slice(0, 5).map((service, index) => (
                     <div key={`${category.id}-${index}`} className="flex-shrink-0 w-80 snap-start">
                       <ServiceCard service={service} />
                     </div>

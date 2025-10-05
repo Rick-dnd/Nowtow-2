@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { Clock, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -19,7 +20,11 @@ interface BlogCardProps {
 
 export function BlogCard({ article }: BlogCardProps): React.ReactElement {
   return (
-    <div className="bg-card rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer group">
+    <motion.div
+      whileHover={{ scale: 1.02, y: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="bg-card rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer group"
+    >
       <div className="flex gap-4 p-4">
         {/* Image */}
         <div className="w-32 h-32 flex-shrink-0 bg-gradient-to-br from-primary/20 to-emerald-500/20 rounded-xl overflow-hidden flex items-center justify-center text-4xl">
@@ -62,6 +67,6 @@ export function BlogCard({ article }: BlogCardProps): React.ReactElement {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

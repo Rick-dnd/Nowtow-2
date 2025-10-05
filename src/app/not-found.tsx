@@ -1,11 +1,15 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Home, Search, ArrowLeft } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 
 export default function NotFound(): React.ReactElement {
+  const router = useRouter();
   const quickLinks = [
     { label: 'Homepage', href: '/', icon: Home },
     { label: 'Events entdecken', href: '/events', icon: Search },
@@ -52,11 +56,9 @@ export default function NotFound(): React.ReactElement {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button asChild variant="outline" size="lg">
-            <Link href="javascript:history.back()">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Zurück
-            </Link>
+          <Button variant="outline" size="lg" onClick={(): void => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Zurück
           </Button>
           <Button asChild size="lg" className="bg-gradient-to-r from-primary to-accent">
             <Link href="/">

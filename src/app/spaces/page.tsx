@@ -6,6 +6,8 @@ import { Footer } from '@/components/layout/Footer';
 import { SpacesFilterSidebar } from '@/components/spaces/SpacesFilterSidebar';
 import { SpacesList } from '@/components/spaces/SpacesList';
 import { SpacesMap } from '@/components/spaces/SpacesMap';
+import { ViewControls, type ViewMode, type SortOption } from '@/components/shared/ViewControls';
+import { useSpaces } from '@/hooks/useSpaces';
 
 export interface SpaceFilters {
   search: string;
@@ -28,6 +30,23 @@ export default function SpacesPage(): React.ReactElement {
     instantBookOnly: false,
   });
 
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
+
+  // Fetch spaces from Supabase
+  const { data: spaces } = useSpaces({
+    searchQuery: filters.search,
+    spaceType: filters.spaceTypes.length > 0 ? filters.spaceTypes[0] : undefined,
+  });
+
+  const filteredCount = (spaces || []).filter((space) => {
+    const hourlyPrice = Number(space.hourly_price) || 0;
+    if (hourlyPrice < filters.priceRange[0] || hourlyPrice > filters.priceRange[1]) return false;
+    const spaceCapacity = space.capacity || 0;
+    if (spaceCapacity < filters.capacity) return false;
+    return true;
+  }).length;
+
   return (
     <>
       <Header />
@@ -39,9 +58,20 @@ export default function SpacesPage(): React.ReactElement {
             <SpacesFilterSidebar filters={filters} onFiltersChange={setFilters} />
           </div>
 
+          {/* View Controls */}
+          <div className="px-4 py-3 border-b border-border bg-muted/30">
+            <ViewControls
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              resultsCount={filteredCount}
+            />
+          </div>
+
           {/* Spaces List */}
           <div className="flex-1 overflow-y-auto">
-            <SpacesList filters={filters} />
+            <SpacesList filters={filters} viewMode={viewMode} sortBy={sortBy} />
           </div>
         </div>
 
