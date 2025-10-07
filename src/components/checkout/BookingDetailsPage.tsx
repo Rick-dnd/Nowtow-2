@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import {
   Calendar,
   MapPin,
@@ -182,10 +183,12 @@ export function BookingDetailsPage({
             <CardContent className="pt-6 space-y-4">
               {booking.image_url && (
                 <div className="aspect-video relative rounded-lg overflow-hidden bg-muted">
-                  <img
+                  <Image
                     src={booking.image_url}
                     alt={booking.title}
-                    className="object-cover w-full h-full"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 600px"
                   />
                 </div>
               )}

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
+import { isValidUUID } from '@/lib/validation';
+import { storageService } from './storage.service';
 
 type Space = Database['public']['Tables']['spaces']['Row'];
 type SpaceInsert = Database['public']['Tables']['spaces']['Insert'];
@@ -63,6 +65,11 @@ export const spacesService = {
   },
 
   async getSpaceById(id: string): Promise<Space | null> {
+    // Validate UUID format before querying to prevent 400 errors
+    if (!isValidUUID(id)) {
+      return null;
+    }
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from('spaces')
@@ -136,5 +143,19 @@ export const spacesService = {
     }
 
     return data || [];
+  },
+
+  async uploadSpaceImages(_spaceId: string, files: File[]): Promise<string[]> {
+    if (files.length === 0) return [];
+
+    try {
+      const uploadResults = await storageService.uploadMultipleFiles('space-images', files);
+      const imageUrls = uploadResults.map((result) => result.publicUrl);
+
+      // Return URLs only - caller will create full image objects with metadata
+      return imageUrls;
+    } catch (error) {
+      throw new Error(`Failed to upload space images: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 };

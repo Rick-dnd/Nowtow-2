@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
+import { isValidUUID } from '@/lib/validation';
+import { storageService } from './storage.service';
 
 type Service = Database['public']['Tables']['services']['Row'];
 type ServiceInsert = Database['public']['Tables']['services']['Insert'];
@@ -56,6 +58,11 @@ export const servicesService = {
   },
 
   async getServiceById(id: string): Promise<Service | null> {
+    // Validate UUID format before querying to prevent 400 errors
+    if (!isValidUUID(id)) {
+      return null;
+    }
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from('services')
@@ -129,5 +136,28 @@ export const servicesService = {
     }
 
     return data || [];
+  },
+
+  async uploadServiceImages(serviceId: string, files: File[]): Promise<string[]> {
+    if (files.length === 0) return [];
+
+    try {
+      const uploadResults = await storageService.uploadMultipleFiles('service-images', files);
+      const imageUrls = uploadResults.map((result) => result.publicUrl);
+
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('services')
+        .update({ images: imageUrls })
+        .eq('id', serviceId);
+
+      if (error) {
+        throw new Error(`Failed to update service images: ${error.message}`);
+      }
+
+      return imageUrls;
+    } catch (error) {
+      throw new Error(`Failed to upload service images: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 };

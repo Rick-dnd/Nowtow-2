@@ -89,17 +89,17 @@ export function SimilarListingsCarousel({
         <div className="flex gap-4">
           {type === 'events' && items.map((item, index) => (
             <div key={index} className="flex-[0_0_auto] w-[280px] md:w-[320px]">
-              <EventCard event={item as Omit<Event, 'id' | 'created_at' | 'updated_at'>} />
+              <EventCard event={item as Event} />
             </div>
           ))}
           {type === 'spaces' && items.map((item, index) => (
             <div key={index} className="flex-[0_0_auto] w-[280px] md:w-[320px]">
-              <SpaceCard space={item as Omit<Space, 'id' | 'created_at' | 'updated_at'>} />
+              <SpaceCard space={item as Space} />
             </div>
           ))}
           {type === 'services' && items.map((item, index) => (
             <div key={index} className="flex-[0_0_auto] w-[280px] md:w-[320px]">
-              <ServiceCard service={item as Omit<Service, 'id' | 'created_at' | 'updated_at'>} />
+              <ServiceCard service={item as Service} />
             </div>
           ))}
         </div>

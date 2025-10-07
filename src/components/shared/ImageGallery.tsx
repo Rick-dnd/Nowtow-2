@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Lightbox from 'yet-another-react-lightbox';
+import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface ImageGalleryProps {
   images: Array<{
@@ -29,6 +29,7 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
     );
   }
 
+  // Slides mit width/height für responsive srcset
   const slides = images.map((img) => ({
     src: img.src,
     alt: img.alt,
@@ -53,8 +54,10 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
               src={images[0]?.src || ''}
               alt={images[0]?.alt || 'Bild 1'}
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover transition-transform group-hover:scale-105"
               priority
+              quality={90}
             />
           </button>
         ) : (
@@ -72,8 +75,10 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
                 src={images[0]?.src || ''}
                 alt={images[0]?.alt || 'Bild 1'}
                 fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 className="object-cover transition-transform group-hover:scale-105"
                 priority
+                quality={90}
               />
               {images.length > 1 && (
                 <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
@@ -99,7 +104,9 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
                       src={image.src}
                       alt={image.alt}
                       fill
+                      sizes="(max-width: 768px) 25vw, 10vw"
                       className="object-cover transition-transform group-hover:scale-105"
+                      quality={90}
                     />
                     {idx === 3 && images.length > 5 && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-semibold">
@@ -114,7 +121,7 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
         )}
       </div>
 
-      {/* Lightbox Modal */}
+      {/* Lightbox Modal - Nur Fullscreen & Zoom */}
       <Lightbox
         open={open}
         close={() => setOpen(false)}
@@ -123,49 +130,29 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
         on={{
           view: ({ index: newIndex }) => setIndex(newIndex),
         }}
+        // Nur Fullscreen und Zoom Plugins
+        plugins={[Fullscreen, Zoom]}
+        // Zoom-Konfiguration
+        zoom={{
+          maxZoomPixelRatio: 3,
+          scrollToZoom: true,
+        }}
         controller={{
           closeOnPullDown: true,
           closeOnBackdropClick: true,
         }}
         carousel={{
-          finite: false,
+          finite: images.length <= 1,
           preload: 2,
         }}
-        render={{
-          buttonPrev: images.length > 1 ? (): React.ReactElement => (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 hover:bg-black/70 text-white"
-              aria-label="Vorheriges Bild (Pfeiltaste links)"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </Button>
-          ) : undefined,
-          buttonNext: images.length > 1 ? (): React.ReactElement => (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 hover:bg-black/70 text-white"
-              aria-label="Nächstes Bild (Pfeiltaste rechts)"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </Button>
-          ) : undefined,
-          buttonClose: (): React.ReactElement => (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white"
-              aria-label="Galerie schließen (ESC)"
-            >
-              <X className="h-6 w-6" />
-            </Button>
-          ),
+        // Standard Toolbar Buttons
+        toolbar={{
+          buttons: ['zoom', 'fullscreen', 'close'],
         }}
+        // Styles für größere, optimierte Darstellung
         styles={{
           container: {
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
           },
         }}
         animation={{

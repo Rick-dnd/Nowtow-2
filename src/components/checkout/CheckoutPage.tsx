@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import { Calendar, MapPin, Users, Clock, ShieldCheck, CreditCard } from 'lucide-react';
 
 const checkoutFormSchema = z.object({
@@ -228,10 +229,12 @@ export function CheckoutPage({ booking, onSubmit }: CheckoutPageProps): React.Re
                 {/* Booking Image & Title */}
                 {booking.image_url && (
                   <div className="aspect-video relative rounded-lg overflow-hidden bg-muted">
-                    <img
+                    <Image
                       src={booking.image_url}
                       alt={booking.title}
-                      className="object-cover w-full h-full"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 400px"
                     />
                   </div>
                 )}

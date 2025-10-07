@@ -10,7 +10,7 @@ import Link from 'next/link';
 import type { Event } from '@/types/database';
 
 interface EventCardProps {
-  event: Omit<Event, 'id' | 'created_at' | 'updated_at'>;
+  event: Event;
 }
 
 const categoryLabels: Record<NonNullable<Event['category']>, string> = {
@@ -36,6 +36,15 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
     minute: '2-digit',
   });
 
+  // Get first image from images array or fallback to image_url
+  const imageUrl = ((): string | null => {
+    if (event.images && Array.isArray(event.images) && event.images.length > 0) {
+      const firstImage = event.images[0];
+      return typeof firstImage === 'string' ? firstImage : null;
+    }
+    return event.image_url;
+  })();
+
   return (
     <motion.div
       whileHover={{ scale: 1.02, y: -4 }}
@@ -45,9 +54,9 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
       <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow">
         {/* Image */}
         <div className="relative aspect-video bg-muted">
-          {event.image_url ? (
+          {imageUrl ? (
             <Image
-              src={event.image_url}
+              src={imageUrl}
               alt={event.name}
               fill
               className="object-cover"
@@ -104,7 +113,7 @@ export function EventCard({ event }: EventCardProps): React.ReactElement {
               )}
             </div>
             <Button asChild>
-              <Link href={`/events/${event.name.toLowerCase().replace(/\s+/g, '-')}`}>
+              <Link href={`/events/${event.id}`}>
                 Details
               </Link>
             </Button>

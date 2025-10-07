@@ -1,16 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, Euro, Calendar, Eye, MousePointerClick } from 'lucide-react';
+import { TrendingUp, TrendingDown, Euro, Calendar, Eye, MousePointerClick, Loader2 } from 'lucide-react';
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   PieChart,
   Pie,
   Cell,
@@ -21,77 +19,143 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-
-// Mock Data
-const revenueData = [
-  { date: '01.10', revenue: 1200, bookings: 45 },
-  { date: '02.10', revenue: 1800, bookings: 52 },
-  { date: '03.10', revenue: 1400, bookings: 38 },
-  { date: '04.10', revenue: 2200, bookings: 65 },
-  { date: '05.10', revenue: 1900, bookings: 58 },
-  { date: '06.10', revenue: 2400, bookings: 72 },
-  { date: '07.10', revenue: 2100, bookings: 61 },
-];
-
-const categoryData = [
-  { category: 'Events', bookings: 245, revenue: 12450 },
-  { category: 'Spaces', bookings: 189, revenue: 9450 },
-  { category: 'Services', bookings: 156, revenue: 15600 },
-];
-
-const trafficData = [
-  { date: '01.10', views: 2100, clicks: 450 },
-  { date: '02.10', views: 2400, clicks: 520 },
-  { date: '03.10', views: 2200, clicks: 480 },
-  { date: '04.10', views: 2800, clicks: 620 },
-  { date: '05.10', views: 2600, clicks: 580 },
-  { date: '06.10', views: 3100, clicks: 710 },
-  { date: '07.10', views: 2900, clicks: 650 },
-];
-
-const revenueDistribution = [
-  { name: 'Events', value: 12450, color: '#10b981' },
-  { name: 'Spaces', value: 9450, color: '#14b8a6' },
-  { name: 'Services', value: 15600, color: '#22c55e' },
-];
+import { useUser } from '@/hooks/useAuth';
+import { useUserBookings } from '@/hooks/useBookings';
+import { useOrganizerEvents } from '@/hooks/useEvents';
+import { useOwnerSpaces } from '@/hooks/useSpaces';
+import { useProviderServices } from '@/hooks/useServices';
+import { format, subDays, isAfter } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 export default function AnalyticsPage(): React.ReactElement {
   const [timeRange, setTimeRange] = useState<string>('7days');
 
+  const { data: user } = useUser();
+  const { data: bookings, isLoading: bookingsLoading } = useUserBookings(user?.id);
+  const { data: events } = useOrganizerEvents(user?.id);
+  const { data: spaces } = useOwnerSpaces(user?.id);
+  const { data: services } = useProviderServices(user?.id);
+
+  // Calculate date range
+  const days = timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 90;
+  const startDate = subDays(new Date(), days);
+
+  // Filter bookings by date range
+  const filteredBookings = useMemo(() => {
+    return (bookings || []).filter(b => {
+      if (!b.created_at) return false;
+      const bookingDate = new Date(b.created_at);
+      return isAfter(bookingDate, startDate);
+    });
+  }, [bookings, startDate]);
+
+  // Calculate KPIs from real data
+  const confirmedBookings = filteredBookings.filter(b => b.status === 'confirmed' || b.status === 'completed');
+  const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const totalBookings = confirmedBookings.length;
+
+  // Generate revenue data by day
+  const revenueData = useMemo(() => {
+    const dataByDay: Record<string, { revenue: number; bookings: number }> = {};
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dateKey = format(date, 'dd.MM', { locale: de });
+      dataByDay[dateKey] = { revenue: 0, bookings: 0 };
+    }
+
+    confirmedBookings.forEach(booking => {
+      if (!booking.created_at) return;
+      const dateKey = format(new Date(booking.created_at), 'dd.MM', { locale: de });
+      if (dataByDay[dateKey]) {
+        dataByDay[dateKey].revenue += booking.total_price || 0;
+        dataByDay[dateKey].bookings += 1;
+      }
+    });
+
+    return Object.entries(dataByDay).map(([date, data]) => ({
+      date,
+      revenue: data.revenue,
+      bookings: data.bookings,
+    }));
+  }, [confirmedBookings, days]);
+
+  // Category distribution
+  const categoryData = useMemo(() => {
+    const eventBookings = filteredBookings.filter(b => b.bookable_type === 'event');
+    const spaceBookings = filteredBookings.filter(b => b.bookable_type === 'space');
+    const serviceBookings = filteredBookings.filter(b => b.bookable_type === 'service');
+
+    return [
+      {
+        category: 'Events',
+        bookings: eventBookings.length,
+        revenue: eventBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
+      },
+      {
+        category: 'Spaces',
+        bookings: spaceBookings.length,
+        revenue: spaceBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
+      },
+      {
+        category: 'Services',
+        bookings: serviceBookings.length,
+        revenue: serviceBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
+      },
+    ];
+  }, [filteredBookings]);
+
+  // Revenue distribution for pie chart
+  const revenueDistribution = useMemo(() => {
+    return categoryData.map((cat, idx) => ({
+      name: cat.category,
+      value: cat.revenue,
+      color: idx === 0 ? '#10b981' : idx === 1 ? '#14b8a6' : '#22c55e',
+    }));
+  }, [categoryData]);
+
   const kpiData = [
     {
       title: 'Total Revenue',
-      value: '€37,500',
-      change: '+15.3%',
+      value: `€${totalRevenue.toFixed(0)}`,
+      change: '-',
       trend: 'up' as const,
       icon: Euro,
       description: 'vs. last period',
     },
     {
       title: 'Total Bookings',
-      value: '590',
-      change: '+12.5%',
+      value: `${totalBookings}`,
+      change: '-',
       trend: 'up' as const,
       icon: Calendar,
       description: 'vs. last period',
     },
     {
-      title: 'Page Views',
-      value: '18.2k',
-      change: '+8.2%',
+      title: 'Active Listings',
+      value: `${(events?.length || 0) + (spaces?.length || 0) + (services?.length || 0)}`,
+      change: '-',
       trend: 'up' as const,
       icon: Eye,
-      description: 'vs. last period',
+      description: 'total listings',
     },
     {
-      title: 'Conversion Rate',
-      value: '3.2%',
-      change: '-0.5%',
-      trend: 'down' as const,
+      title: 'Avg. Booking Value',
+      value: totalBookings > 0 ? `€${(totalRevenue / totalBookings).toFixed(0)}` : '€0',
+      change: '-',
+      trend: 'up' as const,
       icon: MousePointerClick,
-      description: 'vs. last period',
+      description: 'per booking',
     },
   ];
+
+  if (bookingsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -247,27 +311,36 @@ export default function AnalyticsPage(): React.ReactElement {
           </CardContent>
         </Card>
 
-        {/* Traffic Overview */}
+        {/* Bookings Status Overview */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Traffic Overview</CardTitle>
-            <CardDescription>Page views and click-through trends</CardDescription>
+            <CardTitle>Bookings Status</CardTitle>
+            <CardDescription>Current bookings by status</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={trafficData}>
-                <defs>
-                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <BarChart
+                data={[
+                  {
+                    status: 'Pending',
+                    count: filteredBookings.filter(b => b.status === 'pending').length,
+                  },
+                  {
+                    status: 'Confirmed',
+                    count: filteredBookings.filter(b => b.status === 'confirmed').length,
+                  },
+                  {
+                    status: 'Completed',
+                    count: filteredBookings.filter(b => b.status === 'completed').length,
+                  },
+                  {
+                    status: 'Cancelled',
+                    count: filteredBookings.filter(b => b.status === 'cancelled').length,
+                  },
+                ]}
+              >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" className="text-xs" />
+                <XAxis dataKey="status" className="text-xs" />
                 <YAxis className="text-xs" />
                 <Tooltip
                   contentStyle={{
@@ -277,23 +350,8 @@ export default function AnalyticsPage(): React.ReactElement {
                   }}
                 />
                 <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="views"
-                  stroke="#10b981"
-                  fillOpacity={1}
-                  fill="url(#colorViews)"
-                  name="Page Views"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="clicks"
-                  stroke="#14b8a6"
-                  fillOpacity={1}
-                  fill="url(#colorClicks)"
-                  name="Clicks"
-                />
-              </AreaChart>
+                <Bar dataKey="count" fill="#10b981" name="Bookings" />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

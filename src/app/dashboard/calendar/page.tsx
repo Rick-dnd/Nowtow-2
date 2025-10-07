@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Calendar as CalendarIcon, Filter } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Calendar as CalendarIcon, Filter, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,82 +12,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { de } from 'date-fns/locale';
-
-interface Booking {
-  id: string;
-  type: 'event' | 'space' | 'service';
-  title: string;
-  date: string;
-  time: string;
-  status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
-  customer: {
-    name: string;
-  };
-  price: number;
-}
-
-// Mock data - will be replaced with real Supabase data
-const mockBookings: Booking[] = [
-  {
-    id: '1',
-    type: 'event',
-    title: 'Tech Meetup München',
-    date: '2025-10-15',
-    time: '18:00',
-    status: 'confirmed',
-    customer: { name: 'Max Mustermann' },
-    price: 25.0,
-  },
-  {
-    id: '2',
-    type: 'space',
-    title: 'Konferenzraum A - Ganztags',
-    date: '2025-10-20',
-    time: '09:00',
-    status: 'confirmed',
-    customer: { name: 'Anna Schmidt' },
-    price: 350.0,
-  },
-  {
-    id: '3',
-    type: 'service',
-    title: 'Fotoshooting Event',
-    date: '2025-10-22',
-    time: '14:00',
-    status: 'pending',
-    customer: { name: 'Tom Wagner' },
-    price: 450.0,
-  },
-  {
-    id: '4',
-    type: 'event',
-    title: 'Workshop: React Best Practices',
-    date: '2025-10-25',
-    time: '10:00',
-    status: 'confirmed',
-    customer: { name: 'Lisa Bauer' },
-    price: 75.0,
-  },
-];
+import { useUser } from '@/hooks/useAuth';
+import { useUserBookings } from '@/hooks/useBookings';
 
 export default function DashboardCalendarPage(): React.ReactElement {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
+  const { data: user } = useUser();
+  const { data: bookings, isLoading } = useUserBookings(user?.id);
+
   // Get dates with bookings
-  const datesWithBookings = mockBookings.map((booking) => new Date(booking.date));
+  const datesWithBookings = useMemo(() => {
+    return (bookings || [])
+      .filter(b => b.start_datetime)
+      .map(b => parseISO(b.start_datetime!));
+  }, [bookings]);
 
   // Get bookings for selected date
-  const selectedDateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
-  const bookingsOnSelectedDate = mockBookings.filter((booking) => {
-    const matchesDate = booking.date === selectedDateString;
-    const matchesType = typeFilter === 'all' || booking.type === typeFilter;
-    return matchesDate && matchesType;
-  });
+  const bookingsOnSelectedDate = useMemo(() => {
+    if (!selectedDate || !bookings) return [];
 
-  const getStatusColor = (status: Booking['status']): string => {
+    return bookings.filter((booking) => {
+      if (!booking.start_datetime) return false;
+      const bookingDate = parseISO(booking.start_datetime);
+      const matchesDate = isSameDay(bookingDate, selectedDate);
+      const matchesType = typeFilter === 'all' || booking.bookable_type === typeFilter;
+      return matchesDate && matchesType;
+    });
+  }, [bookings, selectedDate, typeFilter]);
+
+  const getStatusColor = (status: string | null): string => {
     switch (status) {
       case 'confirmed':
         return 'bg-green-100 text-green-800';
@@ -97,10 +54,12 @@ export default function DashboardCalendarPage(): React.ReactElement {
         return 'bg-red-100 text-red-800';
       case 'completed':
         return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getTypeColor = (type: Booking['type']): string => {
+  const getTypeColor = (type: string | null): string => {
     switch (type) {
       case 'event':
         return 'bg-purple-100 text-purple-800';
@@ -108,10 +67,12 @@ export default function DashboardCalendarPage(): React.ReactElement {
         return 'bg-blue-100 text-blue-800';
       case 'service':
         return 'bg-emerald-100 text-emerald-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getTypeLabel = (type: Booking['type']): string => {
+  const getTypeLabel = (type: string | null): string => {
     switch (type) {
       case 'event':
         return 'Event';
@@ -119,10 +80,12 @@ export default function DashboardCalendarPage(): React.ReactElement {
         return 'Raum';
       case 'service':
         return 'Service';
+      default:
+        return 'Unknown';
     }
   };
 
-  const getStatusLabel = (status: Booking['status']): string => {
+  const getStatusLabel = (status: string | null): string => {
     switch (status) {
       case 'confirmed':
         return 'Bestätigt';
@@ -132,8 +95,18 @@ export default function DashboardCalendarPage(): React.ReactElement {
         return 'Storniert';
       case 'completed':
         return 'Abgeschlossen';
+      default:
+        return 'Unknown';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -196,13 +169,13 @@ export default function DashboardCalendarPage(): React.ReactElement {
                 <div className="p-3 bg-green-50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Bestätigt</p>
                   <p className="text-2xl font-bold text-green-700">
-                    {mockBookings.filter((b) => b.status === 'confirmed').length}
+                    {(bookings || []).filter((b) => b.status === 'confirmed').length}
                   </p>
                 </div>
                 <div className="p-3 bg-yellow-50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Ausstehend</p>
                   <p className="text-2xl font-bold text-yellow-700">
-                    {mockBookings.filter((b) => b.status === 'pending').length}
+                    {(bookings || []).filter((b) => b.status === 'pending').length}
                   </p>
                 </div>
               </div>
@@ -243,21 +216,23 @@ export default function DashboardCalendarPage(): React.ReactElement {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Badge className={getTypeColor(booking.type)}>
-                              {getTypeLabel(booking.type)}
+                            <Badge className={getTypeColor(booking.bookable_type)}>
+                              {getTypeLabel(booking.bookable_type)}
                             </Badge>
                             <Badge className={getStatusColor(booking.status)}>
                               {getStatusLabel(booking.status)}
                             </Badge>
                           </div>
-                          <h3 className="font-semibold text-lg mb-1">{booking.title}</h3>
+                          <h3 className="font-semibold text-lg mb-1">
+                            Buchung #{booking.id.slice(0, 8)}
+                          </h3>
                           <p className="text-sm text-muted-foreground">
-                            Kunde: {booking.customer.name}
+                            Buchungs-ID: {booking.id}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-bold text-primary">
-                            €{booking.price.toFixed(2)}
+                            €{(booking.total_price || 0).toFixed(2)}
                           </p>
                         </div>
                       </div>
@@ -265,7 +240,9 @@ export default function DashboardCalendarPage(): React.ReactElement {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <CalendarIcon className="h-4 w-4" />
-                          <span>{booking.time} Uhr</span>
+                          <span>
+                            {booking.start_datetime && format(parseISO(booking.start_datetime), 'HH:mm', { locale: de })} Uhr
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -292,7 +269,7 @@ export default function DashboardCalendarPage(): React.ReactElement {
                     <p className="text-2xl font-bold">
                       €
                       {bookingsOnSelectedDate
-                        .reduce((sum, b) => sum + b.price, 0)
+                        .reduce((sum, b) => sum + (b.total_price || 0), 0)
                         .toFixed(2)}
                     </p>
                   </div>

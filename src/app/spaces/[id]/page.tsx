@@ -4,15 +4,18 @@ import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useSpace } from '@/hooks/useSpaces';
+import { useProfile } from '@/hooks/useAuth';
 import { notFound } from 'next/navigation';
-import { ImageGallery } from '@/components/shared/ImageGallery';
+import { SpaceImageGallery } from '@/components/spaces/SpaceImageGallery';
+import type { SpaceImage } from '@/types/space-images';
 import { SimilarListingsCarousel } from '@/components/shared/SimilarListingsCarousel';
-import { Building2, MapPin, Users, Heart, Share2, Star, Clock, AlertCircle, Check, Calendar } from 'lucide-react';
+import { MapPin, Users, Heart, Share2, Star, Clock, AlertCircle, Check, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatPrice } from '@/lib/utils';
 import {
   Accordion,
   AccordionContent,
@@ -62,6 +65,27 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
   // Fetch space from Supabase
   const { data: space, isLoading, error } = useSpace(id);
 
+  // Fetch owner profile
+  const { data: ownerProfile } = useProfile(space?.owner_id ?? undefined);
+
+  // Hours state for hourly booking
+  const [hours, setHours] = useState<number>(space?.minimum_booking_hours ?? 2);
+
+  // Calculate days from date range for daily booking
+  const days = React.useMemo(() => {
+    if (!date?.from || !date?.to || rentalType !== 'daily') return 1;
+    const diffTime = Math.abs(date.to.getTime() - date.from.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays + 1); // +1 to include both start and end day
+  }, [date, rentalType]);
+
+  // Update hours when space loads
+  React.useEffect(() => {
+    if (space?.minimum_booking_hours) {
+      setHours(space.minimum_booking_hours);
+    }
+  }, [space?.minimum_booking_hours]);
+
   if (isLoading) {
     return (
       <>
@@ -78,12 +102,21 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
     notFound();
   }
 
-  const price =
+  // Calculate total price based on rental type
+  const basePrice =
     rentalType === 'hourly'
       ? space.hourly_price
       : rentalType === 'daily'
         ? space.daily_price
         : 0;
+
+  const calculatedPrice =
+    rentalType === 'hourly'
+      ? (basePrice ?? 0) * hours
+      : (basePrice ?? 0) * days;
+
+  const serviceFee = Math.ceil(calculatedPrice * 0.05);
+  const totalPrice = calculatedPrice + serviceFee;
 
   const priceLabel =
     rentalType === 'hourly'
@@ -92,32 +125,48 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-  // Prepare gallery images
-  const galleryImages = space.image_url
-    ? [
-        { src: space.image_url, alt: space.name },
-        { src: space.image_url, alt: `${space.name} - Bild 2` },
-        { src: space.image_url, alt: `${space.name} - Bild 3` },
-        { src: space.image_url, alt: `${space.name} - Bild 4` },
-      ]
-    : [];
+  // Prepare gallery images from images JSONB array
+  const galleryImages: SpaceImage[] = ((): SpaceImage[] => {
+    if (space.images && Array.isArray(space.images) && space.images.length > 0) {
+      // Check if images are already SpaceImage objects or just strings
+      const firstImage = space.images[0];
+      if (typeof firstImage === 'object' && firstImage !== null && 'url' in firstImage) {
+        // Already SpaceImage objects
+        return (space.images as unknown as SpaceImage[]).sort((a, b) => a.order - b.order);
+      }
+      // Legacy string array - convert to SpaceImage format
+      return (space.images as string[]).map((url: string, index: number) => ({
+        url,
+        order: index,
+        is_main: index === 0,
+      }));
+    }
+    // Fallback to single image_url if images array is empty
+    if (space.image_url) {
+      return [{ url: space.image_url, order: 0, is_main: true }];
+    }
+    return [];
+  })();
+
+  // Get owner info with fallback
+  const ownerName = ownerProfile?.full_name || 'Space-Eigentümer';
+  const ownerInitials = ownerName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <>
       <Header />
       <main className="min-h-screen pt-16">
-        {/* Image Gallery */}
+        {/* Space Image Gallery */}
         <div className="container mx-auto px-4 pt-4">
-          {galleryImages.length > 0 ? (
-            <ImageGallery
-              images={galleryImages}
-              className="grid-cols-1 md:grid-cols-4 md:grid-rows-2"
-            />
-          ) : (
-            <div className="aspect-video w-full flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg">
-              <Building2 className="h-32 w-32 text-blue-600" />
-            </div>
-          )}
+          <SpaceImageGallery
+            images={galleryImages}
+            spaceName={space.name}
+          />
         </div>
 
         <div className="container mx-auto px-4 py-8">
@@ -156,11 +205,12 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
 
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    <AvatarFallback>SB</AvatarFallback>
+                    {ownerProfile?.avatar_url && <AvatarImage src={ownerProfile.avatar_url} />}
+                    <AvatarFallback>{ownerInitials}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">Hosted by Sarah Bauer</p>
-                    <p className="text-sm text-muted-foreground">Host seit 2023</p>
+                    <p className="font-semibold">Hosted by {ownerName}</p>
+                    <p className="text-sm text-muted-foreground">Host seit {ownerProfile?.created_at ? new Date(ownerProfile.created_at).getFullYear() : '2024'}</p>
                   </div>
                   <Button variant="outline" size="sm">
                     Follow
@@ -230,20 +280,22 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-sm text-muted-foreground mb-2">Stündlich</p>
-                      <p className="text-3xl font-bold text-primary">€{space.hourly_price}</p>
+                      <p className="text-3xl font-bold text-primary">€{formatPrice(space.hourly_price)}</p>
                       <p className="text-sm text-muted-foreground">pro Stunde</p>
                     </CardContent>
                   </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Täglich</p>
-                      <p className="text-3xl font-bold text-primary">€{space.daily_price}</p>
-                      <p className="text-sm text-muted-foreground">pro Tag</p>
-                      <Badge variant="secondary" className="mt-2">
-                        Spare {Math.round((1 - (space.daily_price ?? 0) / ((space.hourly_price ?? 0) * 10)) * 100)}%
-                      </Badge>
-                    </CardContent>
-                  </Card>
+                  {space.daily_price && (
+                    <Card>
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Täglich</p>
+                        <p className="text-3xl font-bold text-primary">€{formatPrice(space.daily_price)}</p>
+                        <p className="text-sm text-muted-foreground">pro Tag</p>
+                        <Badge variant="secondary" className="mt-2">
+                          Spare {Math.round((1 - (space.daily_price ?? 0) / ((space.hourly_price ?? 0) * 10)) * 100)}%
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
 
@@ -280,6 +332,24 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
 
               <Separator />
 
+              {/* House Rules */}
+              {Array.isArray(space.house_rules) && space.house_rules.length > 0 && (
+                <>
+                  <div>
+                    <h2 className="text-2xl font-semibold mb-4">Hausregeln</h2>
+                    <ul className="space-y-2">
+                      {(space.house_rules as string[]).map((rule: string, idx: number) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                          <span>{rule}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               {/* Important Info */}
               <div>
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
@@ -287,8 +357,7 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                   Wichtige Hinweise
                 </h2>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                  <li>Mindestmietdauer: 2 Stunden</li>
-                  <li>Kaution: €100 (wird bei Rückgabe erstattet)</li>
+                  <li>Mindestmietdauer: {space.minimum_booking_hours ?? 2} Stunden</li>
                   <li>Bitte halte den Raum sauber und ordentlich</li>
                   <li>Rauchen ist im Gebäude nicht gestattet</li>
                 </ul>
@@ -340,7 +409,7 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                   <CardContent className="p-6">
                     <div className="mb-4">
                       <div className="flex items-baseline gap-1 mb-2">
-                        <span className="text-3xl font-bold">€{price}</span>
+                        <span className="text-3xl font-bold">€{formatPrice(basePrice)}</span>
                         <span className="text-muted-foreground">{priceLabel}</span>
                       </div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -367,13 +436,17 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
 
                       {/* Date Picker */}
                       <div>
-                        <label className="text-sm font-semibold block mb-2">Zeitraum</label>
+                        <label className="text-sm font-semibold block mb-2">
+                          {rentalType === 'hourly' ? 'Datum' : 'Zeitraum'}
+                        </label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-start">
                               <Calendar className="mr-2 h-4 w-4" />
                               {date?.from ? (
-                                date.to ? (
+                                rentalType === 'hourly' ? (
+                                  format(date.from, 'dd.MM.yyyy', { locale: de })
+                                ) : date.to ? (
                                   <>
                                     {format(date.from, 'dd.MM.yy', { locale: de })} -{' '}
                                     {format(date.to, 'dd.MM.yy', { locale: de })}
@@ -382,46 +455,89 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                                   format(date.from, 'dd.MM.yyyy', { locale: de })
                                 )
                               ) : (
-                                <span>Zeitraum wählen</span>
+                                <span>{rentalType === 'hourly' ? 'Datum wählen' : 'Zeitraum wählen'}</span>
                               )}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              initialFocus
-                              mode="range"
-                              defaultMonth={date?.from}
-                              selected={date}
-                              onSelect={setDate}
-                              numberOfMonths={2}
-                              locale={de}
-                            />
+                            {rentalType === 'hourly' ? (
+                              <CalendarComponent
+                                initialFocus
+                                mode="single"
+                                selected={date?.from}
+                                onSelect={(selectedDate): void =>
+                                  setDate(selectedDate ? { from: selectedDate, to: selectedDate } : undefined)
+                                }
+                                locale={de}
+                              />
+                            ) : (
+                              <CalendarComponent
+                                initialFocus
+                                mode="range"
+                                defaultMonth={date?.from}
+                                selected={date}
+                                onSelect={setDate}
+                                numberOfMonths={2}
+                                locale={de}
+                              />
+                            )}
                           </PopoverContent>
                         </Popover>
                       </div>
+
+                      {/* Hours Selection (only for hourly) */}
+                      {rentalType === 'hourly' && (
+                        <div>
+                          <label className="text-sm font-semibold block mb-2">Anzahl Stunden</label>
+                          <Select
+                            value={hours.toString()}
+                            onValueChange={(value: string): void => setHours(parseInt(value, 10))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from(
+                                { length: 24 - (space.minimum_booking_hours ?? 1) + 1 },
+                                (_, i) => i + (space.minimum_booking_hours ?? 1)
+                              ).map((h: number) => (
+                                <SelectItem key={h} value={h.toString()}>
+                                  {h} {h === 1 ? 'Stunde' : 'Stunden'}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Days info (calculated from date range for daily) */}
+                      {rentalType === 'daily' && date?.from && date?.to && (
+                        <div className="text-sm text-muted-foreground">
+                          Ausgewählter Zeitraum: {days} {days === 1 ? 'Tag' : 'Tage'}
+                        </div>
+                      )}
 
                       <Separator />
 
                       {/* Price Summary */}
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span>Mietpreis</span>
-                          <span>€{price}</span>
+                          <span>
+                            {rentalType === 'hourly'
+                              ? `€${formatPrice(basePrice)} × ${hours} ${hours === 1 ? 'Stunde' : 'Stunden'}`
+                              : `€${formatPrice(basePrice)} × ${days} ${days === 1 ? 'Tag' : 'Tage'}`}
+                          </span>
+                          <span>€{formatPrice(calculatedPrice)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Service Gebühr</span>
-                          <span>€{Math.ceil((price ?? 0) * 0.05)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Kaution (erstattbar)</span>
-                          <span>€100</span>
+                          <span>Service Gebühr (5%)</span>
+                          <span>€{formatPrice(serviceFee)}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-semibold">
                           <span>Gesamt</span>
-                          <span>€{(price ?? 0) + Math.ceil((price ?? 0) * 0.05) + 100}</span>
+                          <span>€{formatPrice(totalPrice)}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">Kaution wird nach Rückgabe erstattet</p>
                       </div>
 
                       <Button className="w-full" size="lg">
@@ -441,10 +557,11 @@ export default function SpaceDetailPage({ params }: PageProps): React.ReactEleme
                     <h3 className="font-semibold mb-4">Host</h3>
                     <div className="flex items-center gap-3 mb-4">
                       <Avatar className="h-12 w-12">
-                        <AvatarFallback>SB</AvatarFallback>
+                        {ownerProfile?.avatar_url && <AvatarImage src={ownerProfile.avatar_url} />}
+                        <AvatarFallback>{ownerInitials}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="font-semibold">Sarah Bauer</p>
+                        <p className="font-semibold">{ownerName}</p>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                           <span>4.9</span>

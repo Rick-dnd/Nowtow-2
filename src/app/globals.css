@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "yet-another-react-lightbox/styles.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -173,4 +174,27 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Yet Another React Lightbox - Optimierung für größere Bilddarstellung */
+.yarl__slide_image {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Lightbox Container für optimale Darstellung */
+.yarl__container {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+}
+
+/* Plugin Buttons Styling */
+.yarl__toolbar_button {
+  color: white !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.yarl__toolbar_button:hover {
+  background-color: rgba(0, 0, 0, 0.7) !important;
 }

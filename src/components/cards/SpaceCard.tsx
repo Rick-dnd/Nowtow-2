@@ -10,7 +10,7 @@ import Link from 'next/link';
 import type { Space } from '@/types/database';
 
 interface SpaceCardProps {
-  space: Omit<Space, 'id' | 'created_at' | 'updated_at'>;
+  space: Space;
 }
 
 const spaceTypeLabels: Record<NonNullable<Space['type']>, string> = {
@@ -28,6 +28,19 @@ const spaceTypeLabels: Record<NonNullable<Space['type']>, string> = {
 export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
   const amenities = Array.isArray(space.amenities) ? space.amenities : [];
 
+  // Get first image from images array or fallback to image_url
+  const imageUrl = ((): string | null => {
+    if (space.images && Array.isArray(space.images) && space.images.length > 0) {
+      const firstImage = space.images[0];
+      if (typeof firstImage === 'string') {
+        return firstImage;
+      } else if (typeof firstImage === 'object' && firstImage !== null && 'url' in firstImage && typeof firstImage.url === 'string') {
+        return firstImage.url;
+      }
+    }
+    return space.image_url;
+  })();
+
   return (
     <motion.div
       whileHover={{ scale: 1.02, y: -4 }}
@@ -37,9 +50,9 @@ export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
       <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow">
         {/* Image */}
         <div className="relative aspect-video bg-muted">
-          {space.image_url ? (
+          {imageUrl ? (
             <Image
-              src={space.image_url}
+              src={imageUrl}
               alt={space.name}
               fill
               className="object-cover"
@@ -104,7 +117,7 @@ export function SpaceCard({ space }: SpaceCardProps): React.ReactElement {
               <span className="text-sm text-muted-foreground">/Stunde</span>
             </div>
             <Button asChild>
-              <Link href={`/spaces/${space.name.toLowerCase().replace(/\s+/g, '-')}`}>
+              <Link href={`/spaces/${space.id}`}>
                 Details
               </Link>
             </Button>

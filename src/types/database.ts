@@ -3650,6 +3650,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          images: Json | null
           is_vetted: boolean | null
           languages: string[] | null
           location: string
@@ -3670,6 +3671,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          images?: Json | null
           is_vetted?: boolean | null
           languages?: string[] | null
           location: string
@@ -3690,6 +3692,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          images?: Json | null
           is_vetted?: boolean | null
           languages?: string[] | null
           location?: string
@@ -3737,6 +3740,7 @@ export type Database = {
           images: Json | null
           latitude: number | null
           longitude: number | null
+          minimum_booking_hours: number | null
           minimum_stay_days: number | null
           name: string
           owner_id: string | null
@@ -3773,6 +3777,7 @@ export type Database = {
           images?: Json | null
           latitude?: number | null
           longitude?: number | null
+          minimum_booking_hours?: number | null
           minimum_stay_days?: number | null
           name: string
           owner_id?: string | null
@@ -3809,6 +3814,7 @@ export type Database = {
           images?: Json | null
           latitude?: number | null
           longitude?: number | null
+          minimum_booking_hours?: number | null
           minimum_stay_days?: number | null
           name?: string
           owner_id?: string | null

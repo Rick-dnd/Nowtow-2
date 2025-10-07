@@ -4,6 +4,7 @@ import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useEvent } from '@/hooks/useEvents';
+import { useProfile } from '@/hooks/useAuth';
 import { notFound } from 'next/navigation';
 import { ImageGallery } from '@/components/shared/ImageGallery';
 import { SimilarListingsCarousel } from '@/components/shared/SimilarListingsCarousel';
@@ -13,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Accordion,
   AccordionContent,
@@ -55,6 +56,9 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
   // Fetch event from Supabase
   const { data: event, isLoading, error } = useEvent(id);
 
+  // Fetch organizer profile
+  const { data: organizerProfile } = useProfile(event?.organizer_id ?? undefined);
+
   if (isLoading) {
     return (
       <>
@@ -78,16 +82,29 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-  // Prepare gallery images
-  const galleryImages = event.image_url
-    ? [
-        { src: event.image_url, alt: event.name },
-        // Mock additional images - in real app these would come from event.gallery_images
-        { src: event.image_url, alt: `${event.name} - Bild 2` },
-        { src: event.image_url, alt: `${event.name} - Bild 3` },
-        { src: event.image_url, alt: `${event.name} - Bild 4` },
-      ]
-    : [];
+  // Prepare gallery images from images JSONB array
+  const galleryImages = ((): Array<{ src: string; alt: string }> => {
+    if (event.images && Array.isArray(event.images) && event.images.length > 0) {
+      return (event.images as string[]).map((url: string, index: number) => ({
+        src: url,
+        alt: `${event.name} - Bild ${index + 1}`,
+      }));
+    }
+    // Fallback to single image_url if images array is empty
+    if (event.image_url) {
+      return [{ src: event.image_url, alt: event.name }];
+    }
+    return [];
+  })();
+
+  // Get organizer info with fallback
+  const organizerName = organizerProfile?.full_name || 'Event-Organizer';
+  const organizerInitials = organizerName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <>
@@ -143,11 +160,12 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
 
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    <AvatarFallback>MH</AvatarFallback>
+                    {organizerProfile?.avatar_url && <AvatarImage src={organizerProfile.avatar_url} />}
+                    <AvatarFallback>{organizerInitials}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">Hosted by Max Mustermann</p>
-                    <p className="text-sm text-muted-foreground">Host seit 2024</p>
+                    <p className="font-semibold">Hosted by {organizerName}</p>
+                    <p className="text-sm text-muted-foreground">Host seit {organizerProfile?.created_at ? new Date(organizerProfile.created_at).getFullYear() : '2024'}</p>
                   </div>
                   <Button variant="outline" size="sm">
                     Follow
@@ -421,10 +439,11 @@ export default function EventDetailPage({ params }: PageProps): React.ReactEleme
                     <h3 className="font-semibold mb-4">Host</h3>
                     <div className="flex items-center gap-3 mb-4">
                       <Avatar className="h-12 w-12">
-                        <AvatarFallback>MM</AvatarFallback>
+                        {organizerProfile?.avatar_url && <AvatarImage src={organizerProfile.avatar_url} />}
+                        <AvatarFallback>{organizerInitials}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="font-semibold">Max Mustermann</p>
+                        <p className="font-semibold">{organizerName}</p>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                           <span>5.0</span>

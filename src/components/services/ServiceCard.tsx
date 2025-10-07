@@ -1,11 +1,13 @@
 'use client';
 
-import { Heart, Star, MapPin } from 'lucide-react';
+import { Heart, Star, MapPin, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import Image from 'next/image';
 import type { Service } from '@/types/database';
 
 interface ServiceCardProps {
-  service: Omit<Service, 'id' | 'created_at' | 'updated_at'>;
+  service: Service;
 }
 
 export function ServiceCard({ service }: ServiceCardProps): React.ReactElement {
@@ -13,6 +15,15 @@ export function ServiceCard({ service }: ServiceCardProps): React.ReactElement {
   const rating = service.rating ?? 0;
   const reviewCount = service.review_count ?? 0;
   const providerName = '@photographer_pro'; // TODO: Join with service_providers table
+
+  // Get first image from images array
+  const imageUrl = ((): string | null => {
+    if (service.images && Array.isArray(service.images) && service.images.length > 0) {
+      const firstImage = service.images[0];
+      return typeof firstImage === 'string' ? firstImage : null;
+    }
+    return null;
+  })();
 
   return (
     <div className="bg-card rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer group">
@@ -36,11 +47,21 @@ export function ServiceCard({ service }: ServiceCardProps): React.ReactElement {
         </div>
       </div>
 
-      {/* Image - Services use separate service_images table */}
+      {/* Image */}
       <div className="relative w-full h-48 bg-muted overflow-hidden">
-        <div className="w-full h-full bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center">
-          <div className="text-6xl">📸</div>
-        </div>
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={service.title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center">
+            <Briefcase className="h-16 w-16 text-emerald-600" />
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -68,8 +89,10 @@ export function ServiceCard({ service }: ServiceCardProps): React.ReactElement {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1 rounded-full text-sm">
-            Details
+          <Button variant="outline" className="flex-1 rounded-full text-sm" asChild>
+            <Link href={`/services/${service.id}`}>
+              Details
+            </Link>
           </Button>
           <Button className="flex-1 rounded-full text-sm">
             Kontakt

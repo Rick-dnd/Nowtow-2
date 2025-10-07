@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
+import { isValidUUID } from '@/lib/validation';
+import { storageService } from './storage.service';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type EventInsert = Database['public']['Tables']['events']['Insert'];
@@ -66,6 +68,11 @@ export const eventsService = {
   },
 
   async getEventById(id: string): Promise<Event | null> {
+    // Validate UUID format before querying to prevent 400 errors
+    if (!isValidUUID(id)) {
+      return null;
+    }
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from('events')
@@ -166,5 +173,28 @@ export const eventsService = {
     }
 
     return data;
+  },
+
+  async uploadEventImages(eventId: string, files: File[]): Promise<string[]> {
+    if (files.length === 0) return [];
+
+    try {
+      const uploadResults = await storageService.uploadMultipleFiles('event-images', files);
+      const imageUrls = uploadResults.map((result) => result.publicUrl);
+
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('events')
+        .update({ images: imageUrls })
+        .eq('id', eventId);
+
+      if (error) {
+        throw new Error(`Failed to update event images: ${error.message}`);
+      }
+
+      return imageUrls;
+    } catch (error) {
+      throw new Error(`Failed to upload event images: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 };
