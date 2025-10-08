@@ -13,7 +13,6 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Calendar,
   Clock,
-  User,
   Share2,
   Bookmark,
   Heart,
@@ -69,7 +68,7 @@ export default function BlogArticlePage(): React.ReactElement {
 
   // Load related articles (same category)
   const { data: relatedPosts } = useBlogPosts({
-    categoryId: post?.category_id ?? undefined,
+    categoryId: post?.category ?? undefined,
     limit: 3,
   });
 
@@ -486,7 +485,7 @@ export default function BlogArticlePage(): React.ReactElement {
                             href={`/blog/author/${post.author.username ?? post.author_id}`}
                           >
                             Alle Artikel von{' '}
-                            {(post.author.full_name || post.author.username ?? '')
+                            {((post.author.full_name || post.author.username) ?? '')
                               .split(' ')[0]}
                           </Link>
                         </Button>

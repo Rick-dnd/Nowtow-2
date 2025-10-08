@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Clock, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -33,12 +34,14 @@ export function BlogCard({ article }: BlogCardProps): React.ReactElement {
     >
       <div className="flex gap-4 p-4">
         {/* Image */}
-        <div className="w-32 h-32 flex-shrink-0 bg-gradient-to-br from-primary/20 to-emerald-500/20 rounded-xl overflow-hidden flex items-center justify-center text-4xl">
+        <div className="relative w-32 h-32 flex-shrink-0 bg-gradient-to-br from-primary/20 to-emerald-500/20 rounded-xl overflow-hidden flex items-center justify-center text-4xl">
           {article.featured_image ? (
-            <img
+            <Image
               src={article.featured_image}
               alt={article.title ?? ''}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
+              sizes="128px"
             />
           ) : (
             '📄'

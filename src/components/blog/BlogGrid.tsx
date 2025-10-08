@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,10 +38,12 @@ export function BlogGrid({ posts }: BlogGridProps): React.ReactElement {
           <Link href={`/blog/${post.id}`}>
             <div className="aspect-video relative bg-muted">
               {post.featured_image ? (
-                <img
+                <Image
                   src={post.featured_image}
                   alt={post.title ?? ''}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">

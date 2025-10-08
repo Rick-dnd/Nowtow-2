@@ -212,21 +212,7 @@ export default function BlogPopularPage(): React.ReactElement {
           ) : (
             <>
               <BlogGrid
-                posts={articles.map((article) => ({
-                  id: article.id,
-                  title: article.title,
-                  excerpt: article.excerpt || '',
-                  image: article.featured_image || '',
-                  category: article.category || 'Allgemein',
-                  author: {
-                    name: article.author_id || 'Unbekannt',
-                    avatar: null,
-                  },
-                  published_date: article.published_at || article.created_at || '',
-                  reading_time: article.reading_time || 5,
-                  likes: article.like_count || 0,
-                  comments: article.comment_count || 0,
-                }))}
+                posts={articles}
               />
 
               {/* Top Article Highlight */}

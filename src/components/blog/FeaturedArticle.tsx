@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Clock, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { BlogPostWithAuthor } from '@/services/blog.service';
@@ -28,12 +29,15 @@ export function FeaturedArticle({ article }: FeaturedArticleProps): React.ReactE
     <div className="bg-card rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow cursor-pointer group">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
         {/* Image */}
-        <div className="relative h-64 md:h-full bg-gradient-to-br from-primary/20 to-emerald-500/20 rounded-2xl overflow-hidden">
+        <div className="relative h-64 md:h-full min-h-[16rem] bg-gradient-to-br from-primary/20 to-emerald-500/20 rounded-2xl overflow-hidden">
           {article.featured_image ? (
-            <img
+            <Image
               src={article.featured_image}
               alt={article.title ?? ''}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-6xl">

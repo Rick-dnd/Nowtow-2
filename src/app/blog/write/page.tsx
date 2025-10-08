@@ -22,7 +22,7 @@ import { ImageUpload } from '@/components/blog/ImageUpload';
 import { useAutoSave, loadAutoSave } from '@/hooks/useAutoSave';
 import { useWordCount } from '@/hooks/useWordCount';
 import { useAuth } from '@/hooks/useAuth';
-import { useCreateBlogPost, useUpdateBlogPost } from '@/hooks/useBlog';
+import { useCreateBlogPost } from '@/hooks/useBlog';
 import { useUploadFile } from '@/hooks/useUpload';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -54,7 +54,7 @@ export default function BlogWritePage(): React.ReactElement {
   const { profile } = useAuth();
   const router = useRouter();
   const createPostMutation = useCreateBlogPost();
-  const uploadFileMutation = useUploadFile();
+  const uploadFileMutation = useUploadFile('blog-images');
 
   // Load saved draft on mount
   const [title, setTitle] = useState(() => {
@@ -174,23 +174,20 @@ export default function BlogWritePage(): React.ReactElement {
         const blob = await response.blob();
         const file = new File([blob], 'cover-image.jpg', { type: blob.type });
 
-        const uploadResult = await uploadFileMutation.mutateAsync({
-          file,
-          bucket: 'blog-images',
-        });
-        uploadedImageUrl = uploadResult.url;
+        const uploadResult = await uploadFileMutation.mutateAsync(file);
+        uploadedImageUrl = uploadResult.publicUrl;
       }
 
       // Create blog post
       await createPostMutation.mutateAsync({
         title: title.trim(),
+        slug: title.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
         content: content.trim(),
         excerpt: excerpt.trim() || undefined,
         category: category,
         tags: tags.length > 0 ? tags : undefined,
         featured_image: uploadedImageUrl || undefined,
-        is_featured: isFeatured,
-        allow_comments: allowComments,
+        featured: isFeatured,
         status: 'published',
         author_id: profile.id,
       });
