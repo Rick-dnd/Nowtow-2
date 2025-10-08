@@ -4,25 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, MessageCircle, Clock, BookOpen } from 'lucide-react';
 import Link from 'next/link';
-
-interface BlogPost {
-  id: string;
-  title: string;
-  excerpt: string;
-  image: string;
-  category: string;
-  author: {
-    name: string;
-    avatar: string | null;
-  };
-  published_date: string;
-  reading_time: number;
-  likes: number;
-  comments: number;
-}
+import type { BlogPostWithAuthor } from '@/services/blog.service';
 
 interface BlogGridProps {
-  posts: BlogPost[];
+  posts: BlogPostWithAuthor[];
 }
 
 export function BlogGrid({ posts }: BlogGridProps): React.ReactElement {
@@ -38,25 +23,39 @@ export function BlogGrid({ posts }: BlogGridProps): React.ReactElement {
     );
   }
 
+  // Calculate reading time from content
+  const calculateReadingTime = (content: string): number => {
+    const wordsPerMinute = 200;
+    const words = content.trim().split(/\s+/).length;
+    return Math.ceil(words / wordsPerMinute);
+  };
+
   return (
     <div className="grid md:grid-cols-2 gap-6">
       {posts.map((post) => (
         <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-shadow">
           <Link href={`/blog/${post.id}`}>
             <div className="aspect-video relative bg-muted">
-              {/* Image placeholder */}
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                <BookOpen className="h-12 w-12" />
-              </div>
+              {post.featured_image ? (
+                <img
+                  src={post.featured_image}
+                  alt={post.title ?? ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                  <BookOpen className="h-12 w-12" />
+                </div>
+              )}
             </div>
           </Link>
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary">{post.category}</Badge>
+              {post.category && <Badge variant="secondary">{post.category}</Badge>}
               <span className="text-xs text-muted-foreground">•</span>
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {post.reading_time} min
+                {calculateReadingTime(post.content ?? '')} min
               </span>
             </div>
             <Link href={`/blog/${post.id}`}>
@@ -66,21 +65,25 @@ export function BlogGrid({ posts }: BlogGridProps): React.ReactElement {
             </Link>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4 line-clamp-2">{post.excerpt}</p>
+            <p className="text-muted-foreground mb-4 line-clamp-2">
+              {post.excerpt ?? (post.content ?? '').substring(0, 150) + '...'}
+            </p>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                  {post.author.name[0]}
+                  {post.author?.username?.[0]?.toUpperCase() ?? 'A'}
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium">{post.author.name}</p>
+                  <p className="font-medium">
+                    {post.author?.full_name || post.author?.username || 'Unbekannt'}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(post.published_date).toLocaleDateString('de-DE', {
+                    {post.created_at ? new Date(post.created_at).toLocaleDateString('de-DE', {
                       day: '2-digit',
                       month: 'short',
                       year: 'numeric',
-                    })}
+                    }) : ''}
                   </p>
                 </div>
               </div>
@@ -88,11 +91,11 @@ export function BlogGrid({ posts }: BlogGridProps): React.ReactElement {
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5">
                   <Heart className="h-4 w-4" />
-                  <span>{post.likes}</span>
+                  <span>{post.likes_count ?? 0}</span>
                 </Button>
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5">
                   <MessageCircle className="h-4 w-4" />
-                  <span>{post.comments}</span>
+                  <span>{post.comments_count ?? 0}</span>
                 </Button>
               </div>
             </div>

@@ -116,36 +116,36 @@ export default function AnalyticsPage(): React.ReactElement {
 
   const kpiData = [
     {
-      title: 'Total Revenue',
+      title: 'Gesamtumsatz',
       value: `€${totalRevenue.toFixed(0)}`,
       change: '-',
       trend: 'up' as const,
       icon: Euro,
-      description: 'vs. last period',
+      description: 'vs. letzter Zeitraum',
     },
     {
-      title: 'Total Bookings',
+      title: 'Buchungen Gesamt',
       value: `${totalBookings}`,
       change: '-',
       trend: 'up' as const,
       icon: Calendar,
-      description: 'vs. last period',
+      description: 'vs. letzter Zeitraum',
     },
     {
-      title: 'Active Listings',
+      title: 'Aktive Angebote',
       value: `${(events?.length || 0) + (spaces?.length || 0) + (services?.length || 0)}`,
       change: '-',
       trend: 'up' as const,
       icon: Eye,
-      description: 'total listings',
+      description: 'Angebote gesamt',
     },
     {
-      title: 'Avg. Booking Value',
+      title: 'Ø Buchungswert',
       value: totalBookings > 0 ? `€${(totalRevenue / totalBookings).toFixed(0)}` : '€0',
       change: '-',
       trend: 'up' as const,
       icon: MousePointerClick,
-      description: 'per booking',
+      description: 'pro Buchung',
     },
   ];
 
@@ -164,7 +164,7 @@ export default function AnalyticsPage(): React.ReactElement {
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
           <p className="text-muted-foreground mt-1">
-            Comprehensive overview of your performance metrics
+            Umfassender Überblick über deine Leistungskennzahlen
           </p>
         </div>
         <Select value={timeRange} onValueChange={setTimeRange}>
@@ -172,9 +172,9 @@ export default function AnalyticsPage(): React.ReactElement {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7days">Last 7 days</SelectItem>
-            <SelectItem value="30days">Last 30 days</SelectItem>
-            <SelectItem value="90days">Last 90 days</SelectItem>
+            <SelectItem value="7days">Letzte 7 Tage</SelectItem>
+            <SelectItem value="30days">Letzte 30 Tage</SelectItem>
+            <SelectItem value="90days">Letzte 90 Tage</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -214,8 +214,8 @@ export default function AnalyticsPage(): React.ReactElement {
         {/* Revenue Over Time */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Revenue Over Time</CardTitle>
-            <CardDescription>Daily revenue and booking trends</CardDescription>
+            <CardTitle>Umsatz-Verlauf</CardTitle>
+            <CardDescription>Täglicher Umsatz und Buchungstrends</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -236,14 +236,14 @@ export default function AnalyticsPage(): React.ReactElement {
                   dataKey="revenue"
                   stroke="#10b981"
                   strokeWidth={2}
-                  name="Revenue (€)"
+                  name="Umsatz (€)"
                 />
                 <Line
                   type="monotone"
                   dataKey="bookings"
                   stroke="#14b8a6"
                   strokeWidth={2}
-                  name="Bookings"
+                  name="Buchungen"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -253,8 +253,8 @@ export default function AnalyticsPage(): React.ReactElement {
         {/* Bookings by Category */}
         <Card>
           <CardHeader>
-            <CardTitle>Bookings by Category</CardTitle>
-            <CardDescription>Distribution across service types</CardDescription>
+            <CardTitle>Buchungen nach Kategorie</CardTitle>
+            <CardDescription>Verteilung über Service-Typen</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -270,7 +270,7 @@ export default function AnalyticsPage(): React.ReactElement {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="bookings" fill="#10b981" name="Bookings" />
+                <Bar dataKey="bookings" fill="#10b981" name="Buchungen" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -279,8 +279,8 @@ export default function AnalyticsPage(): React.ReactElement {
         {/* Revenue Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Distribution</CardTitle>
-            <CardDescription>Revenue share by category</CardDescription>
+            <CardTitle>Umsatz-Verteilung</CardTitle>
+            <CardDescription>Umsatzanteil nach Kategorie</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -314,27 +314,27 @@ export default function AnalyticsPage(): React.ReactElement {
         {/* Bookings Status Overview */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Bookings Status</CardTitle>
-            <CardDescription>Current bookings by status</CardDescription>
+            <CardTitle>Buchungsstatus</CardTitle>
+            <CardDescription>Aktuelle Buchungen nach Status</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
                 data={[
                   {
-                    status: 'Pending',
+                    status: 'Ausstehend',
                     count: filteredBookings.filter(b => b.status === 'pending').length,
                   },
                   {
-                    status: 'Confirmed',
+                    status: 'Bestätigt',
                     count: filteredBookings.filter(b => b.status === 'confirmed').length,
                   },
                   {
-                    status: 'Completed',
+                    status: 'Abgeschlossen',
                     count: filteredBookings.filter(b => b.status === 'completed').length,
                   },
                   {
-                    status: 'Cancelled',
+                    status: 'Storniert',
                     count: filteredBookings.filter(b => b.status === 'cancelled').length,
                   },
                 ]}
@@ -350,7 +350,7 @@ export default function AnalyticsPage(): React.ReactElement {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="count" fill="#10b981" name="Bookings" />
+                <Bar dataKey="count" fill="#10b981" name="Buchungen" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

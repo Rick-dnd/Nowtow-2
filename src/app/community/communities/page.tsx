@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Header } from '@/components/layout/Header';
 import { Search, Users, Grid3x3, List, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,71 +16,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
-
-interface Community {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  category: string;
-  image_url: string | null;
-  members_count: number;
-  privacy: 'public' | 'private';
-  tags: string[];
-  created_at: string;
-}
-
-// Mock data - will be replaced with real Supabase data
-const mockCommunities: Community[] = [
-  {
-    id: '1',
-    name: 'München Techies',
-    slug: 'muenchen-techies',
-    description: 'Die Community für Tech-Enthusiasten in München. Networking, Events und Knowledge Sharing.',
-    category: 'Technologie',
-    image_url: null,
-    members_count: 1247,
-    privacy: 'public',
-    tags: ['Tech', 'Networking', 'Startups'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'München Foodies',
-    slug: 'muenchen-foodies',
-    description: 'Entdecke die beste Küche Münchens. Restaurant-Reviews, Food-Events und kulinarische Erlebnisse.',
-    category: 'Kulinarik',
-    image_url: null,
-    members_count: 3542,
-    privacy: 'public',
-    tags: ['Food', 'Restaurants', 'Events'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Fitness München',
-    slug: 'fitness-muenchen',
-    description: 'Gemeinsam fit werden! Laufgruppen, Gym-Buddies und Fitness-Challenges.',
-    category: 'Sport',
-    image_url: null,
-    members_count: 892,
-    privacy: 'public',
-    tags: ['Fitness', 'Running', 'Health'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    name: 'Kreatives München',
-    slug: 'kreatives-muenchen',
-    description: 'Für Künstler, Designer und Kreative. Austausch, Workshops und gemeinsame Projekte.',
-    category: 'Kunst & Design',
-    image_url: null,
-    members_count: 567,
-    privacy: 'public',
-    tags: ['Art', 'Design', 'Creative'],
-    created_at: new Date().toISOString(),
-  },
-];
+import { useCommunities } from '@/hooks/useCommunities';
+import type { CommunityFilters } from '@/services/community.service';
+import { CreateCommunityDialog } from '@/components/community/CreateCommunityDialog';
 
 const categories = [
   'Alle',
@@ -96,25 +35,58 @@ export default function CommunitiesPage(): React.ReactElement {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'popular' | 'newest' | 'active'>('popular');
+  const [selectedPrivacy, setSelectedPrivacy] = useState<'all' | 'public' | 'private'>('all');
 
-  const filteredCommunities = mockCommunities.filter((community) => {
-    const matchesSearch =
-      community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      community.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'Alle' || community.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Build filters object
+  const filters: CommunityFilters = {
+    category: selectedCategory !== 'Alle' ? selectedCategory : undefined,
+    searchQuery: searchQuery || undefined,
+    privacy: selectedPrivacy !== 'all' ? selectedPrivacy : undefined,
+  };
 
-  const sortedCommunities = [...filteredCommunities].sort((a, b) => {
-    if (sortBy === 'popular') {
-      return b.members_count - a.members_count;
-    } else if (sortBy === 'newest') {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    }
-    return 0;
-  });
+  // Fetch communities using hook
+  const { data: communities, isLoading, error } = useCommunities(filters);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 bg-muted/20">
+          <div className="container mx-auto px-4 py-8">
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">Lädt Communities...</p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 bg-muted/20">
+          <div className="container mx-auto px-4 py-8">
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground mb-4">Fehler: {error.message}</p>
+                <Button variant="outline" onClick={(): void => window.location.reload()}>
+                  Neu laden
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  const communitiesList = communities ?? [];
 
   return (
     <>
@@ -122,11 +94,14 @@ export default function CommunitiesPage(): React.ReactElement {
       <main className="min-h-screen pt-16 bg-muted/20">
         <div className="container mx-auto px-4 py-8">
           {/* Header Section */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Communities entdecken</h1>
-            <p className="text-lg text-muted-foreground">
-              Finde deine Community und vernetze dich mit Gleichgesinnten
-            </p>
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">Communities entdecken</h1>
+              <p className="text-lg text-muted-foreground">
+                Finde deine Community und vernetze dich mit Gleichgesinnten
+              </p>
+            </div>
+            <CreateCommunityDialog />
           </div>
 
           {/* Search and Filters */}
@@ -138,7 +113,7 @@ export default function CommunitiesPage(): React.ReactElement {
                 <Input
                   placeholder="Communities durchsuchen..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e): void => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -157,15 +132,15 @@ export default function CommunitiesPage(): React.ReactElement {
                 </SelectContent>
               </Select>
 
-              {/* Sort By */}
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+              {/* Privacy Filter */}
+              <Select value={selectedPrivacy} onValueChange={(value): void => setSelectedPrivacy(value as typeof selectedPrivacy)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sortieren" />
+                  <SelectValue placeholder="Sichtbarkeit" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="popular">Beliebteste</SelectItem>
-                  <SelectItem value="newest">Neueste</SelectItem>
-                  <SelectItem value="active">Aktivste</SelectItem>
+                  <SelectItem value="all">Alle</SelectItem>
+                  <SelectItem value="public">Öffentlich</SelectItem>
+                  <SelectItem value="private">Privat</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -173,20 +148,20 @@ export default function CommunitiesPage(): React.ReactElement {
             {/* View Mode Toggle */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {sortedCommunities.length} {sortedCommunities.length === 1 ? 'Community' : 'Communities'} gefunden
+                {communitiesList.length} {communitiesList.length === 1 ? 'Community' : 'Communities'} gefunden
               </p>
               <div className="flex gap-2">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setViewMode('grid')}
+                  onClick={(): void => setViewMode('grid')}
                 >
                   <Grid3x3 className="h-4 w-4" />
                 </Button>
                 <Button
                   variant={viewMode === 'list' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setViewMode('list')}
+                  onClick={(): void => setViewMode('list')}
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -195,11 +170,20 @@ export default function CommunitiesPage(): React.ReactElement {
           </div>
 
           {/* Communities Grid/List */}
-          {sortedCommunities.length === 0 ? (
+          {communitiesList.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground mb-4">Keine Communities gefunden</p>
-                <Button variant="outline">Filter zurücksetzen</Button>
+                <Button
+                  variant="outline"
+                  onClick={(): void => {
+                    setSearchQuery('');
+                    setSelectedCategory('Alle');
+                    setSelectedPrivacy('all');
+                  }}
+                >
+                  Filter zurücksetzen
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -210,26 +194,38 @@ export default function CommunitiesPage(): React.ReactElement {
                   : 'space-y-4'
               }
             >
-              {sortedCommunities.map((community) => (
+              {communitiesList.map((community) => (
                 <Link key={community.id} href={`/community/c/${community.slug}`}>
                   <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="p-6">
                       {/* Community Image/Avatar */}
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white text-2xl font-bold mb-4">
-                        {community.name[0]?.toUpperCase() ?? 'C'}
-                      </div>
+                      {community.image_url ? (
+                        <div className="relative w-16 h-16 rounded-full overflow-hidden mb-4">
+                          <Image
+                            src={community.image_url}
+                            alt={community.name}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white text-2xl font-bold mb-4">
+                          {community.name[0]?.toUpperCase() ?? 'C'}
+                        </div>
+                      )}
 
                       {/* Community Info */}
                       <h3 className="text-xl font-semibold mb-2">{community.name}</h3>
                       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {community.description}
+                        {community.description ?? 'Keine Beschreibung verfügbar'}
                       </p>
 
                       {/* Stats */}
                       <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Users className="h-4 w-4" />
-                          <span>{community.members_count.toLocaleString()} Mitglieder</span>
+                          <span>{(community.members_count ?? 0).toLocaleString()} Mitglieder</span>
                         </div>
                         {community.privacy === 'private' && (
                           <Badge variant="outline">Privat</Badge>
@@ -237,22 +233,24 @@ export default function CommunitiesPage(): React.ReactElement {
                       </div>
 
                       {/* Tags */}
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {community.tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
+                      {community.tags && Array.isArray(community.tags) && community.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {community.tags.slice(0, 3).map((tag, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {String(tag)}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Category Badge */}
                       <div className="flex items-center justify-between">
                         <Badge variant="outline" className="text-xs">
                           <MapPin className="h-3 w-3 mr-1" />
-                          {community.category}
+                          {community.category ?? 'Allgemein'}
                         </Badge>
                         <Button size="sm" variant="outline">
-                          Beitreten
+                          Ansehen
                         </Button>
                       </div>
                     </CardContent>

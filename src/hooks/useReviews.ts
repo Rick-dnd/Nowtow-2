@@ -6,6 +6,7 @@ export function useReviews(filters?: ReviewFilters): UseQueryResult<Review[], Er
   return useQuery({
     queryKey: ['reviews', filters],
     queryFn: (): Promise<Review[]> => reviewsService.getReviews(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -17,6 +18,7 @@ export function useReview(id: string | undefined): UseQueryResult<Review | null,
       return reviewsService.getReview(id);
     },
     enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -31,6 +33,7 @@ export function useReviewsByReviewed(
       return reviewsService.getReviewsByReviewed(reviewType, reviewedId);
     },
     enabled: !!reviewedId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -56,6 +59,7 @@ export function useAverageRating(
       return reviewsService.getAverageRating(reviewType, reviewedId);
     },
     enabled: !!reviewedId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 

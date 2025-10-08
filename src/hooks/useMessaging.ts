@@ -10,6 +10,7 @@ export function useConversations(userId: string | undefined): UseQueryResult<Con
       return messagingService.getUserConversations(userId);
     },
     enabled: !!userId,
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -35,6 +36,7 @@ export function useMessages(
       return messagingService.getMessages(conversationId, limit);
     },
     enabled: !!conversationId,
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -46,6 +48,7 @@ export function useUnreadCount(userId: string | undefined): UseQueryResult<numbe
       return messagingService.getUnreadCount(userId);
     },
     enabled: !!userId,
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
 

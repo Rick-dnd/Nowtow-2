@@ -7,16 +7,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Save,
   Eye,
   Send,
-  ImagePlus,
   Settings,
   X
 } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { RichTextEditor } from '@/components/blog/RichTextEditor';
+import { ImageUpload } from '@/components/blog/ImageUpload';
+import { useAutoSave, loadAutoSave } from '@/hooks/useAutoSave';
+import { useWordCount } from '@/hooks/useWordCount';
+import { useAuth } from '@/hooks/useAuth';
+import { useCreateBlogPost, useUpdateBlogPost } from '@/hooks/useBlog';
+import { useUploadFile } from '@/hooks/useUpload';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 const categories = [
   'Events & Culture',
@@ -29,15 +38,94 @@ const categories = [
   'Lifestyle',
 ];
 
+interface DraftData {
+  title: string;
+  content: string;
+  excerpt: string;
+  category: string;
+  tags: string[];
+  coverImage: string | null;
+  isFeatured: boolean;
+  allowComments: boolean;
+  sendNotification: boolean;
+}
+
 export default function BlogWritePage(): React.ReactElement {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [category, setCategory] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const { profile } = useAuth();
+  const router = useRouter();
+  const createPostMutation = useCreateBlogPost();
+  const uploadFileMutation = useUploadFile();
+
+  // Load saved draft on mount
+  const [title, setTitle] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.title ?? '';
+  });
+
+  const [content, setContent] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.content ?? '';
+  });
+
+  const [excerpt, setExcerpt] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.excerpt ?? '';
+  });
+
+  const [category, setCategory] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.category ?? '';
+  });
+
+  const [tags, setTags] = useState<string[]>(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.tags ?? [];
+  });
+
   const [tagInput, setTagInput] = useState('');
-  const [coverImage, setCoverImage] = useState<string | null>(null);
-  const [isDraft] = useState(true);
+
+  const [coverImage, setCoverImage] = useState<string | null>(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.coverImage ?? null;
+  });
+
   const [showPreview, setShowPreview] = useState(false);
+
+  const [isFeatured, setIsFeatured] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.isFeatured ?? false;
+  });
+
+  const [allowComments, setAllowComments] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.allowComments ?? true;
+  });
+
+  const [sendNotification, setSendNotification] = useState(() => {
+    const draft = loadAutoSave<DraftData>('blog-draft');
+    return draft?.sendNotification ?? false;
+  });
+
+  // Auto-save draft
+  const draftData: DraftData = {
+    title,
+    content,
+    excerpt,
+    category,
+    tags,
+    coverImage,
+    isFeatured,
+    allowComments,
+    sendNotification,
+  };
+
+  const { lastSaved, isSaving, clearSaved } = useAutoSave(draftData, {
+    key: 'blog-draft',
+    delay: 30000, // 30 seconds
+  });
+
+  // Word count and reading time
+  const { wordCount, readingTime } = useWordCount(content);
 
   const handleAddTag = (): void => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -51,13 +139,71 @@ export default function BlogWritePage(): React.ReactElement {
   };
 
   const handleSaveDraft = (): void => {
-    console.log('Draft saved', { title, content, category, tags });
-    alert('Entwurf gespeichert!');
+    // Auto-save already handles this, just show confirmation
+    toast.success('Entwurf gespeichert!');
   };
 
-  const handlePublish = (): void => {
-    console.log('Publishing', { title, content, category, tags });
-    alert('Artikel veröffentlicht!');
+  const handlePublish = async (): Promise<void> => {
+    if (!profile) {
+      toast.error('Du musst angemeldet sein, um einen Artikel zu veröffentlichen');
+      return;
+    }
+
+    if (!title.trim()) {
+      toast.error('Bitte gib einen Titel ein');
+      return;
+    }
+
+    if (!content.trim()) {
+      toast.error('Bitte schreibe etwas Inhalt');
+      return;
+    }
+
+    if (!category) {
+      toast.error('Bitte wähle eine Kategorie');
+      return;
+    }
+
+    try {
+      // Upload cover image if exists
+      let uploadedImageUrl = coverImage;
+      if (coverImage && coverImage.startsWith('data:')) {
+        toast.info('Bild wird hochgeladen...');
+        // Convert data URL to File
+        const response = await fetch(coverImage);
+        const blob = await response.blob();
+        const file = new File([blob], 'cover-image.jpg', { type: blob.type });
+
+        const uploadResult = await uploadFileMutation.mutateAsync({
+          file,
+          bucket: 'blog-images',
+        });
+        uploadedImageUrl = uploadResult.url;
+      }
+
+      // Create blog post
+      await createPostMutation.mutateAsync({
+        title: title.trim(),
+        content: content.trim(),
+        excerpt: excerpt.trim() || undefined,
+        category: category,
+        tags: tags.length > 0 ? tags : undefined,
+        featured_image: uploadedImageUrl || undefined,
+        is_featured: isFeatured,
+        allow_comments: allowComments,
+        status: 'published',
+        author_id: profile.id,
+      });
+
+      toast.success('Artikel erfolgreich veröffentlicht!');
+      clearSaved(); // Clear auto-save after successful publish
+
+      // Redirect to blog page
+      router.push('/blog');
+    } catch (error) {
+      console.error('Error publishing article:', error);
+      toast.error('Fehler beim Veröffentlichen des Artikels');
+    }
   };
 
   return (
@@ -98,40 +244,23 @@ export default function BlogWritePage(): React.ReactElement {
                 placeholder="Gib deinem Artikel einen aussagekräftigen Titel..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                maxLength={100}
                 className="text-2xl font-bold border-0 border-b rounded-none px-0 focus-visible:ring-0"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                {title.length}/100 Zeichen
+              </p>
             </div>
 
             {/* Cover Image */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Cover-Bild</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {coverImage ? (
-                  <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <p className="text-muted-foreground">Cover-Bild Vorschau</p>
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => setCoverImage(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="outline" className="w-full h-32">
-                    <div className="text-center">
-                      <ImagePlus className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Cover-Bild hochladen</p>
-                    </div>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+            <div className="space-y-2">
+              <Label htmlFor="coverImage">Cover-Bild</Label>
+              <ImageUpload
+                value={coverImage}
+                onChange={setCoverImage}
+                disabled={false}
+              />
+            </div>
 
             {/* Content Editor */}
             <div className="space-y-2">
@@ -153,6 +282,9 @@ export default function BlogWritePage(): React.ReactElement {
                   autosaveKey="blog-draft"
                 />
               )}
+              <div className="text-xs text-muted-foreground mt-2">
+                {wordCount} Wörter • {readingTime} min Lesezeit
+              </div>
             </div>
           </div>
 
@@ -169,14 +301,23 @@ export default function BlogWritePage(): React.ReactElement {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Status:</span>
-                  <Badge variant={isDraft ? 'secondary' : 'default'}>
-                    {isDraft ? 'Entwurf' : 'Veröffentlicht'}
-                  </Badge>
+                  <Badge variant="secondary">Entwurf</Badge>
                 </div>
 
                 <div className="pt-2 border-t">
                   <p className="text-xs text-muted-foreground">
-                    Zuletzt gespeichert: vor 2 Minuten
+                    {isSaving ? (
+                      <span className="flex items-center gap-1">
+                        <span className="animate-pulse">●</span> Speichert...
+                      </span>
+                    ) : lastSaved ? (
+                      `Gespeichert: ${lastSaved.toLocaleTimeString('de-DE', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`
+                    ) : (
+                      'Nicht gespeichert'
+                    )}
                   </p>
                 </div>
               </CardContent>
@@ -235,6 +376,73 @@ export default function BlogWritePage(): React.ReactElement {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Excerpt */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Kurzbeschreibung</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Kurze Zusammenfassung deines Artikels (max 160 Zeichen)..."
+                  value={excerpt}
+                  onChange={(e) => setExcerpt(e.target.value)}
+                  maxLength={160}
+                  className="min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  {excerpt.length}/160 Zeichen
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Publishing Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Veröffentlichungsoptionen</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="featured"
+                    checked={isFeatured}
+                    onCheckedChange={(checked) => setIsFeatured(checked === true)}
+                  />
+                  <label
+                    htmlFor="featured"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Als Feature-Artikel hervorheben
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="comments"
+                    checked={allowComments}
+                    onCheckedChange={(checked) => setAllowComments(checked === true)}
+                  />
+                  <label
+                    htmlFor="comments"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Kommentare erlauben
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="notification"
+                    checked={sendNotification}
+                    onCheckedChange={(checked) => setSendNotification(checked === true)}
+                  />
+                  <label
+                    htmlFor="notification"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Benachrichtigung an Follower senden
+                  </label>
+                </div>
               </CardContent>
             </Card>
 

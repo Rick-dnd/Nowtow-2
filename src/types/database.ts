@@ -5110,6 +5110,14 @@ export type Database = {
         Args: { post_id: string }
         Returns: undefined
       }
+      decrement_post_comments: {
+        Args: { post_id_param: string }
+        Returns: undefined
+      }
+      decrement_post_likes: {
+        Args: { post_id_param: string }
+        Returns: undefined
+      }
       format_response_time: {
         Args: { minutes: number }
         Returns: string
@@ -5201,6 +5209,14 @@ export type Database = {
       }
       increment_likes: {
         Args: { post_id: string }
+        Returns: undefined
+      }
+      increment_post_comments: {
+        Args: { post_id_param: string }
+        Returns: undefined
+      }
+      increment_post_likes: {
+        Args: { post_id_param: string }
         Returns: undefined
       }
       increment_shares: {
@@ -5381,48 +5397,26 @@ export const Constants = {
   },
 } as const
 
-// Convenience type exports
+// ============================================================================
+// TYPE HELPERS FOR APPLICATION USE
+// ============================================================================
+// These type aliases make it easier to import and use database types throughout the app
+
 export type Event = Database['public']['Tables']['events']['Row']
-export type EventInsert = Database['public']['Tables']['events']['Insert']
-export type EventUpdate = Database['public']['Tables']['events']['Update']
-
 export type Space = Database['public']['Tables']['spaces']['Row']
-export type SpaceInsert = Database['public']['Tables']['spaces']['Insert']
-export type SpaceUpdate = Database['public']['Tables']['spaces']['Update']
-
 export type Service = Database['public']['Tables']['services']['Row']
-export type ServiceInsert = Database['public']['Tables']['services']['Insert']
-export type ServiceUpdate = Database['public']['Tables']['services']['Update']
-
 export type Booking = Database['public']['Tables']['bookings']['Row']
 export type BookingInsert = Database['public']['Tables']['bookings']['Insert']
 export type BookingUpdate = Database['public']['Tables']['bookings']['Update']
-
 export type Review = Database['public']['Tables']['reviews']['Row']
 export type ReviewInsert = Database['public']['Tables']['reviews']['Insert']
 export type ReviewUpdate = Database['public']['Tables']['reviews']['Update']
-
 export type CommunityPost = Database['public']['Tables']['community_posts']['Row']
 export type CommunityPostInsert = Database['public']['Tables']['community_posts']['Insert']
 export type CommunityPostUpdate = Database['public']['Tables']['community_posts']['Update']
-
 export type BlogPost = Database['public']['Tables']['blog_posts']['Row']
 export type BlogPostInsert = Database['public']['Tables']['blog_posts']['Insert']
 export type BlogPostUpdate = Database['public']['Tables']['blog_posts']['Update']
-
-export type Profile = Database['public']['Tables']['profiles']['Row']
-export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
-export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
-
 export type Message = Database['public']['Tables']['messages']['Row']
-export type MessageInsert = Database['public']['Tables']['messages']['Insert']
 export type MessageUpdate = Database['public']['Tables']['messages']['Update']
-
-export type Notification = Database['public']['Tables']['notifications']['Row']
-export type NotificationInsert = Database['public']['Tables']['notifications']['Insert']
-export type NotificationUpdate = Database['public']['Tables']['notifications']['Update']
-
-// Conversations (already exported Message above)
 export type Conversation = Database['public']['Tables']['conversations']['Row']
-export type ConversationInsert = Database['public']['Tables']['conversations']['Insert']
-export type ConversationUpdate = Database['public']['Tables']['conversations']['Update']

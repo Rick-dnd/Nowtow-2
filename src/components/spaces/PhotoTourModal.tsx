@@ -31,19 +31,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   'additional': 'Zusätzliche Fotos',
 };
 
-// Standard-Reihenfolge der Kategorien
-const CATEGORY_ORDER = [
-  'living-room',
-  'kitchen',
-  'dining',
-  'bedroom',
-  'bathroom',
-  'backyard',
-  'terrace',
-  'exterior',
-  'additional',
-];
-
 export function PhotoTourModal({ open, onClose, images, spaceName }: PhotoTourModalProps): React.ReactElement {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);

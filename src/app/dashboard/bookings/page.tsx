@@ -46,7 +46,7 @@ const getStatusBadge = (status: string): React.ReactElement => {
 const getTypeBadge = (type: string): React.ReactElement => {
   const labels: Record<string, string> = {
     event: 'Event',
-    space: 'Space',
+    space: 'Raum',
     service: 'Service',
   };
 
@@ -99,8 +99,8 @@ export default function BookingsPage(): React.ReactElement {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Bookings</h1>
-        <p className="text-muted-foreground mt-1">Manage your booking calendar</p>
+        <h1 className="text-3xl font-bold">Buchungen</h1>
+        <p className="text-muted-foreground mt-1">Verwalte deinen Buchungskalender</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -109,9 +109,9 @@ export default function BookingsPage(): React.ReactElement {
           <CardHeader>
             <CardTitle className="flex items-center">
               <CalendarIcon className="mr-2 h-5 w-5" />
-              Calendar
+              Kalender
             </CardTitle>
-            <CardDescription>Select a date to view bookings</CardDescription>
+            <CardDescription>Wähle ein Datum um Buchungen anzuzeigen</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <Calendar
@@ -126,14 +126,14 @@ export default function BookingsPage(): React.ReactElement {
         {/* Today's Schedule */}
         <Card>
           <CardHeader>
-            <CardTitle>Today&apos;s Schedule</CardTitle>
-            <CardDescription>Your bookings for today</CardDescription>
+            <CardTitle>Heutiger Zeitplan</CardTitle>
+            <CardDescription>Deine Buchungen für heute</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {todaySchedule.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-8">
-                  No bookings scheduled for today
+                  Keine Buchungen für heute geplant
                 </p>
               ) : (
                 todaySchedule.map((booking) => (
@@ -165,27 +165,27 @@ export default function BookingsPage(): React.ReactElement {
       {/* Upcoming Bookings */}
       <Card>
         <CardHeader>
-          <CardTitle>Upcoming Bookings</CardTitle>
-          <CardDescription>Your upcoming bookings</CardDescription>
+          <CardTitle>Anstehende Buchungen</CardTitle>
+          <CardDescription>Deine anstehenden Buchungen</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Booking ID</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Buchungs-ID</TableHead>
+                  <TableHead>Datum</TableHead>
+                  <TableHead>Preis</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {upcomingBookings.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No upcoming bookings
+                      Keine anstehenden Buchungen
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -215,15 +215,15 @@ export default function BookingsPage(): React.ReactElement {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>
                               <Check className="mr-2 h-4 w-4" />
-                              Confirm
+                              Bestätigen
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Clock className="mr-2 h-4 w-4" />
-                              Reschedule
+                              Umplanen
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-red-600">
                               <X className="mr-2 h-4 w-4" />
-                              Cancel
+                              Stornieren
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

@@ -3,11 +3,26 @@
 import { useState } from 'react';
 import { Image as ImageIcon, BarChart3, MapPin, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { PollCreator, type PollData } from './PollCreator';
 import { MediaUploader, type MediaFile } from './MediaUploader';
+import { useUser, useProfile } from '@/hooks/useAuth';
+import { useCreatePost } from '@/hooks/useCommunity';
+import { useUploadFile } from '@/hooks/useUpload';
+import { toast } from 'sonner';
+import type { Json } from '@/types/database';
 
-export function CreatePostBox(): React.ReactElement {
+interface CreatePostBoxProps {
+  communityId?: string | null;
+}
+
+export function CreatePostBox({ communityId = null }: CreatePostBoxProps): React.ReactElement {
+  const { data: user } = useUser();
+  const { data: profile } = useProfile(user?.id);
+  const createPostMutation = useCreatePost();
+  const uploadMutation = useUploadFile('community-images');
+
   const [content, setContent] = useState('');
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [showMediaUploader, setShowMediaUploader] = useState(false);
@@ -23,34 +38,79 @@ export function CreatePostBox(): React.ReactElement {
     setMediaFiles(files);
   };
 
-  const handlePost = (): void => {
-    if (pollData) {
-      console.log('Posting poll:', { content, poll: pollData });
-      // TODO: Integrate with useCommunity hook
-      alert('Poll erstellt!');
-    } else if (mediaFiles.length > 0) {
-      console.log('Posting with media:', { content, media: mediaFiles });
-      alert(`Post with ${mediaFiles.length} file(s) erstellt!`);
-    } else {
-      console.log('Posting:', content);
-      alert('Post erstellt!');
+  const handlePost = async (): Promise<void> => {
+    if (!user) {
+      toast.error('Bitte melde dich an, um einen Post zu erstellen');
+      return;
     }
-    // Reset
-    setContent('');
-    setPollData(null);
-    setMediaFiles([]);
-    setShowMediaUploader(false);
+
+    if (!content.trim() && !pollData && mediaFiles.length === 0) {
+      toast.error('Bitte gib etwas ein oder füge Inhalte hinzu');
+      return;
+    }
+
+    try {
+      // 1. Upload image if selected
+      let uploadedImageUrl: string | null = null;
+      if (mediaFiles.length > 0 && mediaFiles[0]) {
+        const uploadResult = await uploadMutation.mutateAsync(mediaFiles[0].file);
+        uploadedImageUrl = uploadResult.publicUrl;
+      }
+
+      // 2. Transform poll data to correct structure
+      let transformedPollData: Json | null = null;
+      if (pollData) {
+        const endsAt = new Date();
+        endsAt.setHours(endsAt.getHours() + pollData.duration);
+
+        transformedPollData = {
+          question: pollData.question,
+          options: pollData.options.map((text) => ({ text, votes: 0 })),
+          endsAt: endsAt.toISOString(),
+          multiSelect: pollData.allowMultipleAnswers,
+          totalVotes: 0,
+          hasVoted: false,
+        } as unknown as Json;
+      }
+
+      // 3. Create post
+      await createPostMutation.mutateAsync({
+        author_id: user.id,
+        content: content.trim(),
+        image_url: uploadedImageUrl,
+        poll_data: transformedPollData,
+        community_id: communityId,
+        event_id: null,
+        service_id: null,
+        space_id: null,
+      });
+
+      toast.success('Post erfolgreich erstellt!');
+
+      // Reset
+      setContent('');
+      setPollData(null);
+      setMediaFiles([]);
+      setShowMediaUploader(false);
+    } catch (error) {
+      toast.error(`Fehler beim Erstellen des Posts: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
+    }
   };
 
   return (
     <div className="bg-card rounded-2xl p-4 shadow-sm space-y-3">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-          U
-        </div>
+        <Avatar className="w-10 h-10 flex-shrink-0">
+          {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? profile.username ?? 'User'} />}
+          <AvatarFallback className="bg-gradient-to-br from-primary to-emerald-600 text-white font-semibold">
+            {profile?.full_name?.[0]?.toUpperCase() ??
+             profile?.username?.[0]?.toUpperCase() ??
+             user?.email?.[0]?.toUpperCase() ?? 'U'}
+          </AvatarFallback>
+        </Avatar>
         <div className="flex-1 space-y-3">
           <Textarea
-            placeholder="What's happening?"
+            placeholder="Was gibt's Neues?"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="min-h-[80px] resize-none border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-primary"
@@ -99,7 +159,7 @@ export function CreatePostBox(): React.ReactElement {
               >
                 <ImageIcon className="h-4 w-4" />
                 <span className="hidden sm:inline">
-                  {showMediaUploader ? 'Hide' : 'Image'}
+                  {showMediaUploader ? 'Ausblenden' : 'Bild'}
                 </span>
               </Button>
               <Button
@@ -113,11 +173,11 @@ export function CreatePostBox(): React.ReactElement {
                 disabled={pollData !== null || mediaFiles.length > 0}
               >
                 <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Poll</span>
+                <span className="hidden sm:inline">Umfrage</span>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2">
                 <MapPin className="h-4 w-4" />
-                <span className="hidden sm:inline">Location</span>
+                <span className="hidden sm:inline">Standort</span>
               </Button>
               <Button variant="ghost" size="sm" className="gap-2">
                 <Smile className="h-4 w-4" />
@@ -129,9 +189,13 @@ export function CreatePostBox(): React.ReactElement {
               size="sm"
               className="rounded-full"
               onClick={handlePost}
-              disabled={!content && !pollData && mediaFiles.length === 0}
+              disabled={(!content && !pollData && mediaFiles.length === 0) || uploadMutation.isPending || createPostMutation.isPending}
             >
-              Post
+              {uploadMutation.isPending
+                ? 'Lade Bild hoch...'
+                : createPostMutation.isPending
+                ? 'Erstelle Post...'
+                : 'Posten'}
             </Button>
           </div>
         </div>

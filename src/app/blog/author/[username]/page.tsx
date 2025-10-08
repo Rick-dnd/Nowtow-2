@@ -1,276 +1,287 @@
+'use client';
+
 import React from 'react';
-import { BlogGrid } from '@/components/blog/BlogGrid';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  ArrowLeft,
-  MapPin,
-  Link as LinkIcon,
-  Twitter,
-  Instagram,
-  Linkedin,
-  Mail,
-  Calendar,
-  BookOpen,
-  Heart,
-  UserPlus,
-  Share2,
-} from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, MapPin, Calendar, Loader2, UserPlus, UserMinus } from 'lucide-react';
+import { useAuthorProfile, useBlogPosts } from '@/hooks/useBlog';
+import { useFollowStatus, useFollowUser, useUnfollowUser, useUserStats } from '@/hooks/useUser';
+import { useAuth } from '@/hooks/useAuth';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface AuthorPageProps {
-  params: Promise<{ username: string }>;
+  params: Promise<{
+    username: string;
+  }>;
 }
 
-// Mock author data
-const authorsData: Record<string, {
-  username: string;
-  full_name: string;
-  bio: string;
-  avatar: string | null;
-  location: string;
-  website: string | null;
-  twitter: string | null;
-  instagram: string | null;
-  linkedin: string | null;
-  email: string;
-  joined_date: string;
-  articles_count: number;
-  followers_count: number;
-  total_likes: number;
-  expertise: string[];
-}> = {
-  'anna-schmidt': {
-    username: 'anna-schmidt',
-    full_name: 'Anna Schmidt',
-    bio: 'Kulturjournalistin und Event-Enthusiastin aus Berlin. Ich liebe es, versteckte Perlen der Kulturszene zu entdecken und darüber zu schreiben. Wenn ich nicht gerade auf Events bin, findet man mich in Galerien oder auf der Suche nach dem perfekten Kaffee.',
-    avatar: null,
-    location: 'Berlin, Germany',
-    website: 'https://anna-schmidt.de',
-    twitter: '@anna_schmidt',
-    instagram: '@annaschmidt_events',
-    linkedin: 'anna-schmidt',
-    email: 'anna@example.com',
-    joined_date: '2023-01-15',
-    articles_count: 47,
-    followers_count: 1234,
-    total_likes: 5678,
-    expertise: ['Kultur', 'Kunst', 'Musik', 'Berlin'],
-  },
-};
+export default function AuthorPage({ params }: AuthorPageProps): React.ReactElement {
+  const [username, setUsername] = React.useState<string>('');
 
-// Mock author articles
-const mockAuthorArticles = [
-  {
-    id: '1',
-    title: 'Die besten Kulturevents im Sommer 2024',
-    excerpt: 'Ein umfassender Guide zu den Highlights der Kultursaison in Berlin',
-    image: '/images/blog/culture-events.jpg',
-    category: 'kultur',
-    author: {
-      name: 'Anna Schmidt',
-      avatar: null,
-    },
-    published_date: '2024-06-15',
-    reading_time: 8,
-    likes: 245,
-    comments: 34,
-  },
-  {
-    id: '2',
-    title: 'Insider-Tipps für Kunstliebhaber',
-    excerpt: 'Versteckte Galerien und aufstrebende Künstler entdecken',
-    image: '/images/blog/art-galleries.jpg',
-    category: 'kultur',
-    author: {
-      name: 'Anna Schmidt',
-      avatar: null,
-    },
-    published_date: '2024-06-12',
-    reading_time: 6,
-    likes: 189,
-    comments: 27,
-  },
-];
+  React.useEffect((): void => {
+    void params.then((resolvedParams) => {
+      setUsername(resolvedParams.username);
+    });
+  }, [params]);
 
-export default async function AuthorProfilePage({ params }: AuthorPageProps): Promise<React.ReactElement> {
-  const { username } = await params;
-  const author = authorsData[username];
+  // Get current user
+  const { user } = useAuth();
 
-  if (!author) {
-    return (
-      <div className="container max-w-4xl py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Autor nicht gefunden</h1>
-        <p className="text-muted-foreground mb-6">
-          Der gesuchte Autor existiert nicht.
-        </p>
-        <Button asChild>
-          <Link href="/blog">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück zum Blog
-          </Link>
-        </Button>
-      </div>
+  // Load author profile from database
+  const { data: author, isLoading: authorLoading, error: authorError } = useAuthorProfile(username);
+
+  // Load all posts to filter by author
+  const { data: allPosts, isLoading: postsLoading } = useBlogPosts({ status: 'published' });
+
+  // Check if current user follows this author
+  const { data: isFollowing } = useFollowStatus(user?.id, author?.id);
+
+  // Load user stats (followers/following counts)
+  const { data: userStats } = useUserStats(author?.id);
+
+  // Mutations for follow/unfollow
+  const followMutation = useFollowUser();
+  const unfollowMutation = useUnfollowUser();
+
+  const authorPosts = React.useMemo(() => {
+    if (!allPosts || !author) return [];
+    return (allPosts || []).filter((post) => post.author_id === author.id);
+  }, [allPosts, author]);
+
+  const authorStats = React.useMemo(() => {
+    const totalViews = authorPosts.reduce(
+      (sum, post) => sum + (post.view_count ?? 0),
+      0
     );
-  }
+    const totalLikes = authorPosts.reduce(
+      (sum, post) => sum + (post.likes_count ?? 0),
+      0
+    );
+
+    return {
+      totalViews,
+      totalLikes,
+      articleCount: authorPosts.length,
+    };
+  }, [authorPosts]);
+
+  const isLoading = authorLoading || postsLoading;
+
+  // Check if viewing own profile
+  const isOwnProfile = user?.id === author?.id;
+
+  // Handle follow/unfollow
+  const handleFollowToggle = (): void => {
+    if (!user) {
+      toast.error('Bitte melde dich an, um Autoren zu folgen');
+      return;
+    }
+    if (!author) return;
+
+    if (isFollowing) {
+      unfollowMutation.mutate(
+        { followerId: user.id, followingId: author.id },
+        {
+          onSuccess: () => {
+            toast.success('Du folgst diesem Autor nicht mehr');
+          },
+          onError: () => {
+            toast.error('Fehler beim Entfolgen');
+          },
+        }
+      );
+    } else {
+      followMutation.mutate(
+        { followerId: user.id, followingId: author.id },
+        {
+          onSuccess: () => {
+            toast.success('Du folgst diesem Autor jetzt');
+          },
+          onError: () => {
+            toast.error('Fehler beim Folgen');
+          },
+        }
+      );
+    }
+  };
 
   return (
-    <div className="container py-8">
-      {/* Back Button */}
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/blog">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück zum Blog
-          </Link>
-        </Button>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b">
+        <div className="container mx-auto px-4 py-6">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/blog/authors">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {/* Author Header */}
-      <Card className="mb-8">
-        <CardContent className="pt-6">
-          <div className="grid md:grid-cols-[auto_1fr_auto] gap-6 items-start">
-            {/* Avatar */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white text-4xl font-bold">
-              {author.full_name[0]}
-            </div>
+      {/* Content */}
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : authorError || !author ? (
+          <div className="text-center py-12">
+            <p className="text-destructive">Fehler beim Laden des Profils</p>
+            {authorError && (
+              <p className="text-sm text-muted-foreground mt-2">{authorError.message}</p>
+            )}
+            {!author && !authorError && (
+              <p className="text-sm text-muted-foreground mt-2">Autor nicht gefunden</p>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Author Profile */}
+            <Card className="p-8 mb-8">
+              <div className="flex flex-col md:flex-row gap-6">
+                <Avatar className="h-32 w-32">
+                  <AvatarImage src={author.avatar_url ?? undefined} alt={author.full_name ?? author.username ?? 'Autor'} />
+                  <AvatarFallback className="text-4xl">
+                    {author.full_name
+                      ? author.full_name
+                          .split(' ')
+                          .map((n: string) => n[0])
+                          .join('')
+                          .toUpperCase()
+                      : author.username?.[0]?.toUpperCase() ?? 'A'}
+                  </AvatarFallback>
+                </Avatar>
 
-            {/* Info */}
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">{author.full_name}</h1>
-              <p className="text-muted-foreground mb-4">@{author.username}</p>
-              <p className="text-base leading-relaxed mb-4">{author.bio}</p>
-
-              {/* Meta Info */}
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                {author.location && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    <span>{author.location}</span>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h1 className="text-3xl font-bold mb-2">
+                        {author.full_name ?? author.username ?? 'Unbekannter Autor'}
+                      </h1>
+                      <p className="text-muted-foreground">@{author.username ?? 'unbekannt'}</p>
+                    </div>
+                    {!isOwnProfile && (
+                      <Button
+                        onClick={handleFollowToggle}
+                        disabled={followMutation.isPending || unfollowMutation.isPending}
+                        variant={isFollowing ? 'outline' : 'default'}
+                      >
+                        {followMutation.isPending || unfollowMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : isFollowing ? (
+                          <UserMinus className="h-4 w-4 mr-2" />
+                        ) : (
+                          <UserPlus className="h-4 w-4 mr-2" />
+                        )}
+                        {isFollowing ? 'Entfolgen' : 'Folgen'}
+                      </Button>
+                    )}
                   </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>Mitglied seit {new Date(author.joined_date).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+
+                  {author.author_bio && (
+                    <p className="text-muted-foreground mb-4">
+                      {author.author_bio}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
+                    {author.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        <span>{author.location}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        Mitglied seit {format(new Date(author.created_at), 'MMM yyyy', { locale: de })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-6">
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {authorStats.articleCount}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Artikel</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {userStats?.followers_count ?? 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Follower</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {authorStats.totalViews.toLocaleString('de-DE')}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Aufrufe</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {authorStats.totalLikes.toLocaleString('de-DE')}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Likes</div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </Card>
 
-              {/* Expertise Tags */}
-              <div className="flex flex-wrap gap-2 mt-4">
-                {author.expertise.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
+            {/* Topics */}
+            {authorPosts.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4">Themen</h2>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(
+                    new Set(authorPosts.map((post) => post.category).filter(Boolean))
+                  ).map((category) => (
+                    <Badge key={category} variant="secondary">
+                      {category}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Actions */}
-            <div className="flex flex-col gap-2">
-              <Button className="gap-2">
-                <UserPlus className="h-4 w-4" />
-                Folgen
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Mail className="h-4 w-4" />
-                Nachricht
-              </Button>
-              <Button variant="outline" size="icon">
-                <Share2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <Separator className="my-6" />
-
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 text-center">
+            {/* Articles */}
             <div>
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{author.articles_count}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Artikel</p>
+              <h2 className="text-xl font-semibold mb-4">
+                Artikel ({authorStats.articleCount})
+              </h2>
+              {authorPosts.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">
+                    Dieser Autor hat noch keine Artikel veröffentlicht
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {authorPosts.map((post) => (
+                    <Link key={post.id} href={`/blog/${post.id}`}>
+                      <Card className="p-6 hover:shadow-lg transition-all">
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-2">{post.title}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+                          {post.excerpt ?? (post.content ?? '').substring(0, 150) + '...'}
+                        </p>
+                        {post.category && (
+                          <Badge variant="secondary">{post.category}</Badge>
+                        )}
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Heart className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{author.total_likes.toLocaleString()}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Likes</p>
-            </div>
-            <div>
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <UserPlus className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{author.followers_count.toLocaleString()}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Follower</p>
-            </div>
-          </div>
-
-          {/* Social Links */}
-          {(author.website || author.twitter || author.instagram || author.linkedin) && (
-            <>
-              <Separator className="my-6" />
-              <div className="flex justify-center gap-3">
-                {author.website && (
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={author.website} target="_blank" rel="noopener noreferrer" aria-label="Website">
-                      <LinkIcon className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
-                {author.twitter && (
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={`https://twitter.com/${author.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-                      <Twitter className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
-                {author.instagram && (
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={`https://instagram.com/${author.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                      <Instagram className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
-                {author.linkedin && (
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={`https://linkedin.com/in/${author.linkedin}`} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-                      <Linkedin className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Content Tabs */}
-      <Tabs defaultValue="articles" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="articles" className="gap-2">
-            <BookOpen className="h-4 w-4" />
-            Artikel ({author.articles_count})
-          </TabsTrigger>
-          <TabsTrigger value="popular" className="gap-2">
-            <Heart className="h-4 w-4" />
-            Beliebt
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="articles" className="mt-6">
-          <BlogGrid posts={mockAuthorArticles} />
-        </TabsContent>
-
-        <TabsContent value="popular" className="mt-6">
-          <BlogGrid posts={mockAuthorArticles.slice(0, 1)} />
-        </TabsContent>
-      </Tabs>
+          </>
+        )}
+      </div>
     </div>
   );
 }

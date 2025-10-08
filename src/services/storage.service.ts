@@ -6,6 +6,7 @@ export type StorageBucket =
   | 'space-images'
   | 'service-images'
   | 'blog-images'
+  | 'community-images'
   | 'stories'
   | 'videos'
   | 'voice-notes';

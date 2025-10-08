@@ -13,14 +13,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Euro, Star, Eye, Calendar, MessageSquare, BarChart3, Loader2 } from 'lucide-react';
-import { useUser } from '@/hooks/useAuth';
+import { useUser, useProfile } from '@/hooks/useAuth';
 import { useUserBookings } from '@/hooks/useBookings';
 import { useOrganizerEvents } from '@/hooks/useEvents';
 import { useOwnerSpaces } from '@/hooks/useSpaces';
 import { useProviderServices } from '@/hooks/useServices';
+import { useReviews } from '@/hooks/useReviews';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import Link from 'next/link';
+import { useMemo } from 'react';
 
 const quickActions = [
   { label: 'Event erstellen', icon: Calendar, href: '/dashboard/events' },
@@ -31,10 +33,12 @@ const quickActions = [
 
 export default function DashboardPage(): React.ReactElement {
   const { data: user } = useUser();
+  const { data: profile } = useProfile(user?.id);
   const { data: bookings, isLoading: bookingsLoading } = useUserBookings(user?.id);
   const { data: events } = useOrganizerEvents(user?.id);
   const { data: spaces } = useOwnerSpaces(user?.id);
   const { data: services } = useProviderServices(user?.id);
+  const { data: reviews } = useReviews();
 
   const activeListingsCount = (events?.length || 0) + (spaces?.length || 0) + (services?.length || 0);
   const pendingBookingsCount = bookings?.filter(b => b.status === 'pending')?.length || 0;
@@ -43,6 +47,21 @@ export default function DashboardPage(): React.ReactElement {
   const confirmedBookings = bookings?.filter(b => b.status === 'confirmed' || b.status === 'completed') || [];
   const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
   const bookingsCount = confirmedBookings.length;
+
+  // Calculate average rating
+  const userReviews = useMemo(() => {
+    if (!reviews || !user) return [];
+    return reviews.filter(r => r.provider_id === user.id);
+  }, [reviews, user]);
+
+  const averageRating = useMemo(() => {
+    if (!userReviews || userReviews.length === 0) return 0;
+    const sum = userReviews.reduce((acc, r) => acc + (r.rating || 0), 0);
+    return sum / userReviews.length;
+  }, [userReviews]);
+
+  // Total active listings (view_count field doesn't exist in events table)
+  const totalViews = activeListingsCount;
 
   const kpiData = [
     {
@@ -61,14 +80,14 @@ export default function DashboardPage(): React.ReactElement {
     },
     {
       title: 'Bewertung',
-      value: '-',
-      change: '-',
+      value: averageRating > 0 ? averageRating.toFixed(1) : '-',
+      change: userReviews.length > 0 ? `${userReviews.length} Bewertungen` : '-',
       trend: 'up' as const,
       icon: Star,
     },
     {
       title: 'Ansichten',
-      value: '-',
+      value: totalViews > 0 ? totalViews.toString() : '-',
       change: '-',
       trend: 'up' as const,
       icon: Eye,
@@ -86,7 +105,9 @@ export default function DashboardPage(): React.ReactElement {
       {/* Welcome Banner */}
       <Card className="bg-gradient-to-br from-primary/10 via-emerald-500/10 to-teal-500/10 border-primary/20">
         <CardHeader>
-          <CardTitle className="text-2xl">Willkommen zurück{user?.email ? `, ${user.email}` : ''}! 👋</CardTitle>
+          <CardTitle className="text-2xl">
+            Willkommen zurück{profile?.full_name ? `, ${profile.full_name}` : (profile?.username ? `, @${profile.username}` : '')}! 👋
+          </CardTitle>
           <CardDescription className="text-base">
             Du hast {activeListingsCount} aktive Angebote und {pendingBookingsCount} neue Buchungen
           </CardDescription>

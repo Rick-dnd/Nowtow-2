@@ -16,6 +16,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SubscriptionBadge } from '@/components/ui/subscription-badge';
 import { cn } from '@/lib/utils';
 import { Icon } from '@iconify/react';
 import type { User } from '@supabase/supabase-js';
@@ -120,6 +121,7 @@ export function UserDropdown({
     .toUpperCase()
     .slice(0, 2);
   const userStatus = 'online'; // TODO: Integrate with Supabase Realtime Presence
+  const subscriptionTier = (profile?.subscription_tier ?? 'free') as 'free' | 'plus' | 'premium';
 
   const renderMenuItem = (item: MenuItem, index: number): React.ReactElement => (
     <DropdownMenuItem
@@ -185,9 +187,12 @@ export function UserDropdown({
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                  {fullName}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                    {fullName}
+                  </h3>
+                  <SubscriptionBadge tier={subscriptionTier} size="sm" />
+                </div>
                 <p className="text-muted-foreground text-xs">{username}</p>
               </div>
             </div>

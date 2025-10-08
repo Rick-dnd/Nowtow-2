@@ -109,7 +109,7 @@ export function StoriesBar(): React.ReactElement {
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
             <Plus className="h-6 w-6 text-white" />
           </div>
-          <span className="text-xs font-medium">Your Story</span>
+          <span className="text-xs font-medium">Deine Story</span>
         </button>
 
         {/* Stories */}

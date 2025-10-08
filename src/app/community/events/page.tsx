@@ -19,104 +19,12 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import Link from 'next/link';
-
-interface CommunityEvent {
-  id: string;
-  title: string;
-  description: string;
-  community: {
-    name: string;
-    slug: string;
-  };
-  date: string;
-  time: string;
-  location: {
-    name: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-  };
-  attendees_count: number;
-  max_attendees: number | null;
-  category: string;
-  image_url: string | null;
-  is_rsvp: boolean;
-}
-
-// Mock data - will be replaced with real Supabase data
-const mockEvents: CommunityEvent[] = [
-  {
-    id: '1',
-    title: 'Tech Meetup München - KI & Machine Learning',
-    description: 'Monatliches Treffen der München Techies Community. Diesmal mit Fokus auf KI-Entwicklung.',
-    community: {
-      name: 'München Techies',
-      slug: 'muenchen-techies',
-    },
-    date: '2025-11-15',
-    time: '18:00',
-    location: {
-      name: 'TechHub München',
-      address: 'Maximilianstraße 13, 80539 München',
-      latitude: 48.1391,
-      longitude: 11.5802,
-    },
-    attendees_count: 45,
-    max_attendees: 80,
-    category: 'Networking',
-    image_url: null,
-    is_rsvp: false,
-  },
-  {
-    id: '2',
-    title: 'Food Tour durch Schwabing',
-    description: 'Gemeinsame kulinarische Entdeckungsreise durch die besten Restaurants in Schwabing.',
-    community: {
-      name: 'München Foodies',
-      slug: 'muenchen-foodies',
-    },
-    date: '2025-11-20',
-    time: '19:00',
-    location: {
-      name: 'Münchner Freiheit',
-      address: 'Münchner Freiheit, 80802 München',
-      latitude: 48.1619,
-      longitude: 11.5887,
-    },
-    attendees_count: 12,
-    max_attendees: 15,
-    category: 'Food & Drink',
-    image_url: null,
-    is_rsvp: true,
-  },
-  {
-    id: '3',
-    title: 'Morgenlauf im Englischen Garten',
-    description: 'Gemeinsamer Lauf jeden Samstag um 8 Uhr. Alle Fitness-Level willkommen!',
-    community: {
-      name: 'Fitness München',
-      slug: 'fitness-muenchen',
-    },
-    date: '2025-11-16',
-    time: '08:00',
-    location: {
-      name: 'Englischer Garten',
-      address: 'Englischer Garten, 80538 München',
-      latitude: 48.1642,
-      longitude: 11.6056,
-    },
-    attendees_count: 23,
-    max_attendees: null,
-    category: 'Sport & Fitness',
-    image_url: null,
-    is_rsvp: false,
-  },
-];
+import { useEvents } from '@/hooks/useEvents';
+import type { EventFilters } from '@/services/events.service';
 
 export default function CommunityEventsPage(): React.ReactElement {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [selectedCommunity, setSelectedCommunity] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const handleNearMeLocation = (latitude: number, longitude: number): void => {
@@ -124,17 +32,65 @@ export default function CommunityEventsPage(): React.ReactElement {
     // TODO: Filter events by proximity
   };
 
-  const filteredEvents = mockEvents.filter((event) => {
-    const matchesCommunity =
-      selectedCommunity === 'all' || event.community.slug === selectedCommunity;
-    const matchesCategory =
-      selectedCategory === 'all' || event.category === selectedCategory;
-    const matchesDate =
-      !selectedDate ||
-      new Date(event.date).toDateString() === selectedDate.toDateString();
+  // Build filters object
+  const filters: EventFilters = {
+    category: selectedCategory !== 'all' ? selectedCategory : undefined,
+    // Add date filtering if needed in the future
+  };
 
-    return matchesCommunity && matchesCategory && matchesDate;
+  // Fetch events using hook
+  const { data: events, isLoading, error } = useEvents(filters);
+
+  // Filter by date on client side (since API might not support date filtering yet)
+  const filteredEvents = (events ?? []).filter((event) => {
+    if (!selectedDate) return true;
+
+    // Check if event.start_datetime matches selected date
+    if (event.start_datetime) {
+      const eventDate = new Date(event.start_datetime);
+      return eventDate.toDateString() === selectedDate.toDateString();
+    }
+    return false;
   });
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 bg-muted/20">
+          <div className="container mx-auto px-4 py-8">
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">Lädt Events...</p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 bg-muted/20">
+          <div className="container mx-auto px-4 py-8">
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground mb-4">Fehler: {error.message}</p>
+                <Button variant="outline" onClick={(): void => window.location.reload()}>
+                  Neu laden
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
@@ -175,19 +131,6 @@ export default function CommunityEventsPage(): React.ReactElement {
                 </PopoverContent>
               </Popover>
 
-              {/* Community Filter */}
-              <Select value={selectedCommunity} onValueChange={setSelectedCommunity}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Community" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle Communities</SelectItem>
-                  <SelectItem value="muenchen-techies">München Techies</SelectItem>
-                  <SelectItem value="muenchen-foodies">München Foodies</SelectItem>
-                  <SelectItem value="fitness-muenchen">Fitness München</SelectItem>
-                </SelectContent>
-              </Select>
-
               {/* Category Filter */}
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
@@ -199,6 +142,8 @@ export default function CommunityEventsPage(): React.ReactElement {
                   <SelectItem value="Food & Drink">Food & Drink</SelectItem>
                   <SelectItem value="Sport & Fitness">Sport & Fitness</SelectItem>
                   <SelectItem value="Workshop">Workshop</SelectItem>
+                  <SelectItem value="Kultur">Kultur</SelectItem>
+                  <SelectItem value="Musik">Musik</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -206,18 +151,18 @@ export default function CommunityEventsPage(): React.ReactElement {
               <NearMeButton onLocationFound={handleNearMeLocation} />
 
               {/* View Mode Toggle */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 lg:col-span-2">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'outline'}
                   size="icon"
-                  onClick={() => setViewMode('grid')}
+                  onClick={(): void => setViewMode('grid')}
                 >
                   <Grid3x3 className="h-4 w-4" />
                 </Button>
                 <Button
                   variant={viewMode === 'list' ? 'default' : 'outline'}
                   size="icon"
-                  onClick={() => setViewMode('list')}
+                  onClick={(): void => setViewMode('list')}
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -225,7 +170,7 @@ export default function CommunityEventsPage(): React.ReactElement {
             </div>
 
             {/* Active Filters */}
-            {(selectedDate || selectedCommunity !== 'all' || selectedCategory !== 'all') && (
+            {(selectedDate || selectedCategory !== 'all') && (
               <div className="flex items-center gap-2 pt-4 border-t">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Aktive Filter:</span>
@@ -234,18 +179,14 @@ export default function CommunityEventsPage(): React.ReactElement {
                     {format(selectedDate, 'dd.MM.yyyy', { locale: de })}
                   </Badge>
                 )}
-                {selectedCommunity !== 'all' && (
-                  <Badge variant="secondary">{selectedCommunity}</Badge>
-                )}
                 {selectedCategory !== 'all' && (
                   <Badge variant="secondary">{selectedCategory}</Badge>
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
+                  onClick={(): void => {
                     setSelectedDate(undefined);
-                    setSelectedCommunity('all');
                     setSelectedCategory('all');
                   }}
                 >
@@ -261,9 +202,8 @@ export default function CommunityEventsPage(): React.ReactElement {
               <CardContent className="py-12 text-center">
                 <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground mb-4">Keine Events gefunden</p>
-                <Button variant="outline" onClick={() => {
+                <Button variant="outline" onClick={(): void => {
                   setSelectedDate(undefined);
-                  setSelectedCommunity('all');
                   setSelectedCategory('all');
                 }}>
                   Filter zurücksetzen
@@ -284,58 +224,58 @@ export default function CommunityEventsPage(): React.ReactElement {
                     <CardContent className="p-6">
                       {/* Event Badge */}
                       <div className="flex items-center justify-between mb-4">
-                        <Badge>{event.category}</Badge>
-                        {event.is_rsvp && (
-                          <Badge variant="secondary">Zugesagt</Badge>
-                        )}
+                        <Badge>{event.category ?? 'Event'}</Badge>
                       </div>
 
                       {/* Event Title */}
                       <h3 className="text-xl font-semibold mb-2 line-clamp-2">
-                        {event.title}
+                        {event.name}
                       </h3>
 
-                      {/* Community */}
-                      <Link
-                        href={`/community/c/${event.community.slug}`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <p className="text-sm text-primary hover:underline mb-3">
-                          {event.community.name}
-                        </p>
-                      </Link>
-
                       {/* Description */}
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {event.description}
-                      </p>
+                      {event.description && (
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                          {event.description}
+                        </p>
+                      )}
 
                       {/* Date & Time */}
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                        <CalendarIcon className="h-4 w-4" />
-                        <span>
-                          {format(new Date(event.date), 'dd.MM.yyyy', { locale: de })} • {event.time}
-                        </span>
-                      </div>
-
-                      {/* Location */}
-                      <div className="flex items-start gap-2 text-sm text-muted-foreground mb-4">
-                        <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-1">{event.location.name}</span>
-                      </div>
-
-                      {/* Attendees */}
-                      <div className="flex items-center justify-between pt-4 border-t">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Users className="h-4 w-4 text-muted-foreground" />
+                      {event.start_datetime && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                          <CalendarIcon className="h-4 w-4" />
                           <span>
-                            {event.attendees_count}
-                            {event.max_attendees && ` / ${event.max_attendees}`} Teilnehmer
+                            {format(new Date(event.start_datetime), 'dd.MM.yyyy • HH:mm', { locale: de })} Uhr
                           </span>
                         </div>
-                        <Button size="sm" variant={event.is_rsvp ? 'outline' : 'default'}>
-                          {event.is_rsvp ? 'Abgesagt' : 'Zusagen'}
-                        </Button>
+                      )}
+
+                      {/* Location */}
+                      {(event.venue_name || event.city) && (
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground mb-4">
+                          <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-1">
+                            {event.venue_name ?? event.city ?? 'Ort nicht angegeben'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Price & Attendees */}
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <div className="text-sm">
+                          {event.ticket_price && event.ticket_price > 0 ? (
+                            <span className="font-semibold">
+                              {event.ticket_price.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Kostenlos</span>
+                          )}
+                        </div>
+                        {event.max_attendees && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span>{event.max_attendees} Plätze</span>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

@@ -85,7 +85,6 @@ export function RichTextEditor({
       const html = editor.getHTML();
       if (html && html !== '<p></p>') {
         localStorage.setItem(autosaveKey, html);
-        console.log('Content autosaved');
       }
     }, 30000); // Save every 30 seconds
 
@@ -234,11 +233,11 @@ export function RichTextEditor({
       {/* Stats Footer */}
       <div className="bg-muted/30 border-t px-4 py-2 flex items-center justify-between text-sm text-muted-foreground">
         <div className="flex gap-4">
-          <span aria-live="polite">{wordCount} words</span>
-          <span aria-live="polite">{charCount} characters</span>
+          <span aria-live="polite">{wordCount} Wörter</span>
+          <span aria-live="polite">{charCount} Zeichen</span>
         </div>
         {autosave && (
-          <span className="text-xs">Autosave enabled (every 30s)</span>
+          <span className="text-xs">Automatisches Speichern aktiviert (alle 30s)</span>
         )}
       </div>
     </div>

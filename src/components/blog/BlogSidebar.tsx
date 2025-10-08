@@ -1,106 +1,299 @@
 'use client';
 
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import {
+  FileText,
+  FolderOpen,
+  TrendingUp,
+  Bookmark,
+  Calendar,
+  Users,
+  MessageSquare,
+  Settings,
+  Search,
+  PenTool,
+  Edit3,
+} from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserPlus } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { useBlogStats, usePopularBlogPosts } from '@/hooks/useBlog';
+import { useAuth } from '@/hooks/useAuth';
+import { AuthorApplicationDialog } from '@/components/blog/AuthorApplicationDialog';
+import { cn } from '@/lib/utils';
 
-const categories = [
-  { id: 'all', label: 'All Articles', count: 156 },
-  { id: 'events', label: 'Events', count: 45 },
-  { id: 'guides', label: 'Guides', count: 23 },
-  { id: 'news', label: 'News', count: 18 },
-  { id: 'reviews', label: 'Reviews', count: 34 },
-  { id: 'local-tips', label: 'Local Tips', count: 56 },
-];
+interface SidebarLinkProps {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  count?: number;
+  active?: boolean;
+}
 
-const popularPosts = [
-  { id: '1', title: 'Die 10 besten Cafés in Schwabing', views: 1234 },
-  { id: '2', title: 'Events Guide für Oktober', views: 956 },
-  { id: '3', title: 'Versteckte Kunst-Studios entdecken', views: 834 },
-  { id: '4', title: 'Food-Tour durch Glockenbach', views: 723 },
-  { id: '5', title: 'Yoga Spots im Englischen Garten', views: 689 },
-];
-
-const topAuthors = [
-  { id: '1', username: 'nowtown_team', articles: 45 },
-  { id: '2', username: 'foodie_muc', articles: 32 },
-  { id: '3', username: 'artlover', articles: 28 },
-];
-
-export function BlogSidebar(): React.ReactElement {
+function SidebarLink({
+  href,
+  icon: Icon,
+  label,
+  count,
+  active = false,
+}: SidebarLinkProps): React.ReactElement {
   return (
-    <div className="sticky top-20 space-y-6">
-      {/* Categories */}
-      <div className="bg-card rounded-2xl p-4 shadow-sm">
-        <h3 className="font-semibold mb-4">Categories</h3>
-        <div className="space-y-3">
-          {categories.map((category) => (
-            <div key={category.id} className="flex items-center space-x-2">
-              <Checkbox id={category.id} />
-              <Label
-                htmlFor={category.id}
-                className="flex-1 flex items-center justify-between cursor-pointer"
-              >
-                <span>{category.label}</span>
-                <span className="text-sm text-muted-foreground">({category.count})</span>
-              </Label>
-            </div>
-          ))}
-        </div>
+    <Link href={href}>
+      <Button
+        variant="ghost"
+        className={cn(
+          'w-full justify-start gap-2 hover:bg-accent/50 transition-colors',
+          active && 'bg-primary text-white font-semibold border-l-2 border-primary-foreground'
+        )}
+      >
+        <Icon className={cn('h-4 w-4', active && 'text-white')} />
+        <span className="flex-1 text-left">{label}</span>
+        {count !== undefined && (
+          <span className={cn('text-xs', active ? 'text-white/80' : 'text-muted-foreground')}>
+            {count}
+          </span>
+        )}
+      </Button>
+    </Link>
+  );
+}
+
+interface BlogSidebarProps {
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+}
+
+export function BlogSidebar({
+  searchQuery = '',
+  onSearchChange,
+}: BlogSidebarProps): React.ReactElement {
+  const pathname = usePathname();
+  const { profile } = useAuth();
+  const { data: stats, isLoading: statsLoading } = useBlogStats();
+  const { data: popularPosts, isLoading: popularLoading } =
+    usePopularBlogPosts(5);
+  const [authorDialogOpen, setAuthorDialogOpen] = useState(false);
+
+  const isAuthor = profile?.is_author === true;
+
+  // Helper function to check if a link is active
+  const isActive = (href: string): boolean => {
+    if (href === '/blog') {
+      return pathname === '/blog' || pathname === '/blog/';
+    }
+    return pathname === href || pathname?.startsWith(`${href}/`) || false;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Logo/Brand */}
+      <div className="mb-6">
+        <Link href="/blog" className="flex items-center gap-2">
+          <span className="text-2xl font-bold text-primary">Nowtown</span>
+          <span className="text-2xl font-bold text-muted-foreground">Blog</span>
+        </Link>
       </div>
 
-      {/* Popular Posts */}
-      <div className="bg-card rounded-2xl p-4 shadow-sm">
-        <h3 className="font-semibold mb-4">Popular Posts</h3>
-        <div className="space-y-3">
-          {popularPosts.map((post, index) => (
-            <div key={post.id} className="flex items-start gap-3 group cursor-pointer">
-              <span className="text-lg font-bold text-primary">{index + 1}.</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
-                  {post.title}
-                </p>
-                <p className="text-xs text-muted-foreground">{post.views} views</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Artikel schreiben Button (Nur für Autoren) */}
+      {isAuthor && (
+        <Button asChild className="w-full" size="lg">
+          <Link href="/blog/write">
+            <PenTool className="h-4 w-4 mr-2" />
+            Artikel schreiben
+          </Link>
+        </Button>
+      )}
 
-      {/* Top Authors */}
-      <div className="bg-card rounded-2xl p-4 shadow-sm">
-        <h3 className="font-semibold mb-4">Top Authors</h3>
-        <div className="space-y-3">
-          {topAuthors.map((author) => (
-            <div key={author.id} className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {author.username?.[0]?.toUpperCase() ?? 'A'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">@{author.username}</p>
-                <p className="text-xs text-muted-foreground">{author.articles} Articles</p>
-              </div>
-              <Button size="sm" variant="outline" className="rounded-full">
-                <UserPlus className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Autor werden Button (Nur für Nicht-Autoren) */}
+      {!isAuthor && (
+        <Button
+          className="w-full"
+          size="lg"
+          variant="outline"
+          onClick={(): void => setAuthorDialogOpen(true)}
+        >
+          <Edit3 className="h-4 w-4 mr-2" />
+          Autor werden
+        </Button>
+      )}
 
-      {/* Newsletter Signup */}
-      <div className="bg-gradient-to-br from-primary/10 to-emerald-500/10 rounded-2xl p-6">
-        <h3 className="font-semibold mb-2">Newsletter</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Get weekly updates on new articles and local events
-        </p>
-        <div className="space-y-2">
-          <Input type="email" placeholder="Your email" className="bg-background" />
-          <Button className="w-full rounded-full">Subscribe</Button>
+      {/* Suchfeld */}
+      {onSearchChange && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Suchen..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e): void => onSearchChange(e.target.value)}
+          />
         </div>
-      </div>
+      )}
+
+      {/* ALLGEMEIN Bereich */}
+      <Card className="p-4">
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase mb-3">
+          Allgemein
+        </h3>
+        <div className="space-y-1">
+          <SidebarLink
+            href="/blog"
+            icon={FileText}
+            label="Alle Artikel"
+            count={statsLoading ? undefined : stats?.total_articles}
+            active={isActive('/blog')}
+          />
+          <SidebarLink
+            href="/blog/categories"
+            icon={FolderOpen}
+            label="Kategorien"
+            active={isActive('/blog/categories')}
+          />
+          <SidebarLink
+            href="/blog/popular"
+            icon={TrendingUp}
+            label="Beliebte Artikel"
+            active={isActive('/blog/popular')}
+          />
+          <SidebarLink
+            href="/blog/bookmarks"
+            icon={Bookmark}
+            label="Lesezeichen"
+            active={isActive('/blog/bookmarks')}
+          />
+        </div>
+      </Card>
+
+      {/* WERKZEUGE Bereich (nur für Autoren) */}
+      {isAuthor && (
+        <>
+          <Card className="p-4">
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase mb-3">
+              Werkzeuge
+            </h3>
+            <div className="space-y-1">
+              <SidebarLink
+                href="/blog/your-articles"
+                icon={FileText}
+                label="Deine Artikel"
+                active={isActive('/blog/your-articles')}
+              />
+              <SidebarLink
+                href="/blog/calendar"
+                icon={Calendar}
+                label="Kalender"
+                active={isActive('/blog/calendar')}
+              />
+              <SidebarLink
+                href="/blog/authors"
+                icon={Users}
+                label="Autoren"
+                active={isActive('/blog/authors')}
+              />
+              <SidebarLink
+                href="/blog/comments"
+                icon={MessageSquare}
+                label="Kommentare"
+                count={statsLoading ? undefined : stats?.total_comments}
+                active={isActive('/blog/comments')}
+              />
+              <SidebarLink
+                href="/blog/settings"
+                icon={Settings}
+                label="Einstellungen"
+                active={isActive('/blog/settings')}
+              />
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* Kategorien */}
+      {statsLoading ? (
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3">Kategorien</h3>
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </Card>
+      ) : (
+        stats &&
+        stats.categories.length > 0 && (
+          <Card className="p-4">
+            <h3 className="font-semibold mb-3">Kategorien</h3>
+            <div className="space-y-2">
+              {stats.categories.slice(0, 6).map((category) => (
+                <Link
+                  key={category.name}
+                  href={`/blog/category/${encodeURIComponent(category.name)}`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <span className="text-sm">{category.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {category.count}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )
+      )}
+
+      {/* Beliebte Artikel */}
+      {popularLoading ? (
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3">Beliebte Artikel</h3>
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : (
+        popularPosts &&
+        popularPosts.length > 0 && (
+          <Card className="p-4">
+            <h3 className="font-semibold mb-3">Beliebte Artikel</h3>
+            <div className="space-y-3">
+              {popularPosts.map((post) => (
+                <Link
+                  key={post.id}
+                  href={`/blog/${post.id}`}
+                  className="block group"
+                >
+                  <h4 className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors mb-1">
+                    {post.title}
+                  </h4>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>@{post.author?.username ?? 'unknown'}</span>
+                    {post.likes_count !== undefined && post.likes_count > 0 && (
+                      <>
+                        <span>•</span>
+                        <span>{post.likes_count} Likes</span>
+                      </>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )
+      )}
+
+      {/* Author Application Dialog */}
+      <AuthorApplicationDialog
+        open={authorDialogOpen}
+        onOpenChange={setAuthorDialogOpen}
+      />
     </div>
   );
 }

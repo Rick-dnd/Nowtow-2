@@ -55,8 +55,8 @@ export default function MessagesPage(): React.ReactElement {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Messages</h1>
-        <p className="text-muted-foreground mt-1">Communicate with your customers</p>
+        <h1 className="text-3xl font-bold">Nachrichten</h1>
+        <p className="text-muted-foreground mt-1">Kommuniziere mit deinen Kunden</p>
       </div>
 
       <Card className="h-[600px]">
@@ -64,7 +64,7 @@ export default function MessagesPage(): React.ReactElement {
           {/* Conversations List */}
           <div className="border-r">
             <div className="p-4 border-b">
-              <h3 className="font-semibold">Conversations</h3>
+              <h3 className="font-semibold">Konversationen</h3>
             </div>
             <ScrollArea className="h-[calc(600px-60px)]">
               {!conversations || conversations.length === 0 ? (

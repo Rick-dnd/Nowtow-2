@@ -6,6 +6,7 @@ export function useBookings(filters?: BookingFilters): UseQueryResult<Booking[],
   return useQuery({
     queryKey: ['bookings', filters],
     queryFn: (): Promise<Booking[]> => bookingsService.getBookings(filters),
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 }
 
@@ -17,6 +18,7 @@ export function useBooking(id: string | undefined): UseQueryResult<Booking | nul
       return bookingsService.getBooking(id);
     },
     enabled: !!id,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
@@ -28,6 +30,7 @@ export function useUserBookings(userId: string | undefined): UseQueryResult<Book
       return bookingsService.getBookingsByUser(userId);
     },
     enabled: !!userId,
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 }
 
@@ -42,6 +45,7 @@ export function useBookableBookings(
       return bookingsService.getBookingsByBookable(bookableType, bookableId);
     },
     enabled: !!bookableId,
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 }
 

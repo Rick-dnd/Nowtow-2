@@ -5,7 +5,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
-type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'];
 
 // Helper function to get initial user from localStorage (Supabase session)
 function getInitialUserFromStorage(): User | null {
@@ -71,6 +71,22 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
   });
+}
+
+// Composite hook that combines user and profile data
+export function useAuth(): {
+  user: User | null | undefined;
+  profile: Profile | null | undefined;
+  isLoading: boolean;
+} {
+  const { data: user, isLoading: userLoading } = useUser();
+  const { data: profile, isLoading: profileLoading } = useProfile(user?.id);
+
+  return {
+    user: user ?? null,
+    profile: profile ?? null,
+    isLoading: userLoading || profileLoading,
+  };
 }
 
 export function useSignUp(): UseMutationResult<AuthResponse, Error, SignUpData> {

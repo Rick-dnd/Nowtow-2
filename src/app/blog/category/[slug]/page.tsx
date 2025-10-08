@@ -1,158 +1,204 @@
+'use client';
+
 import React from 'react';
-import { BlogFiltersSection } from '@/components/blog/BlogFiltersSection';
-import { BlogGrid } from '@/components/blog/BlogGrid';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Bookmark } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowLeft, FolderOpen, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { useBlogPosts } from '@/hooks/useBlog';
 
 interface CategoryPageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 }
 
-// Mock categories metadata
-const categoriesData: Record<string, { name: string; description: string; count: number; color: string }> = {
-  'kultur': {
-    name: 'Kultur',
-    description: 'Entdecke kulturelle Events, Ausstellungen und künstlerische Veranstaltungen',
-    count: 127,
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  },
-  'musik': {
-    name: 'Musik',
-    description: 'Von Konzerten bis Festivals - alle Musik-Events in deiner Stadt',
-    count: 98,
-    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-  },
-  'sport': {
-    name: 'Sport',
-    description: 'Sportveranstaltungen, Wettkämpfe und aktive Freizeitaktivitäten',
-    count: 156,
-    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  },
-  'food-drink': {
-    name: 'Food & Drink',
-    description: 'Kulinarische Events, Food-Festivals und Genussmomente',
-    count: 89,
-    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  },
-  'bildung': {
-    name: 'Bildung',
-    description: 'Workshops, Seminare und Weiterbildungsveranstaltungen',
-    count: 74,
-    color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  },
-  'networking': {
-    name: 'Networking',
-    description: 'Business-Events, Meetups und professionelle Netzwerktreffen',
-    count: 112,
-    color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-  },
-};
+export default function CategoryPage({ params }: CategoryPageProps): React.ReactElement {
+  const [categorySlug, setCategorySlug] = React.useState<string>('');
+  const [sortBy, setSortBy] = React.useState<string>('recent');
+  const { data: allPosts, isLoading, error } = useBlogPosts();
 
-// Mock blog posts for category
-const mockCategoryPosts = [
-  {
-    id: '1',
-    title: 'Die besten Kulturevents im Sommer 2024',
-    excerpt: 'Ein umfassender Guide zu den Highlights der Kultursaison in Berlin',
-    image: '/images/blog/culture-events.jpg',
-    category: 'kultur',
-    author: {
-      name: 'Anna Schmidt',
-      avatar: null,
-    },
-    published_date: '2024-06-15',
-    reading_time: 8,
-    likes: 245,
-    comments: 34,
-  },
-  {
-    id: '2',
-    title: 'Insider-Tipps für Kunstliebhaber',
-    excerpt: 'Versteckte Galerien und aufstrebende Künstler entdecken',
-    image: '/images/blog/art-galleries.jpg',
-    category: 'kultur',
-    author: {
-      name: 'Michael Weber',
-      avatar: null,
-    },
-    published_date: '2024-06-12',
-    reading_time: 6,
-    likes: 189,
-    comments: 27,
-  },
-];
+  React.useEffect((): void => {
+    void params.then((resolvedParams) => {
+      setCategorySlug(resolvedParams.slug);
+    });
+  }, [params]);
 
-export default async function BlogCategoryPage({ params }: CategoryPageProps): Promise<React.ReactElement> {
-  const { slug } = await params;
-  const categoryMeta = categoriesData[slug];
+  const categoryName = React.useMemo(() => {
+    return categorySlug
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }, [categorySlug]);
 
-  if (!categoryMeta) {
-    return (
-      <div className="container max-w-4xl py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Kategorie nicht gefunden</h1>
-        <p className="text-muted-foreground mb-6">
-          Die gesuchte Kategorie existiert nicht.
-        </p>
-        <Button asChild>
-          <Link href="/blog">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück zum Blog
-          </Link>
-        </Button>
-      </div>
-    );
-  }
+  const categoryPosts = React.useMemo(() => {
+    if (!allPosts || !categorySlug) return [];
+
+    let filtered = (allPosts || []).filter((post) => {
+      const postCategory = (post.category ?? '').toLowerCase().replace(/\s+/g, '-');
+      return postCategory === categorySlug;
+    });
+
+    // Sort
+    switch (sortBy) {
+      case 'recent':
+        filtered = filtered.sort(
+          (a, b) =>
+            new Date(b.created_at ?? 0).getTime() -
+            new Date(a.created_at ?? 0).getTime()
+        );
+        break;
+      case 'popular':
+        filtered = filtered.sort(
+          (a, b) => (b.view_count ?? 0) - (a.view_count ?? 0)
+        );
+        break;
+      case 'trending':
+        filtered = filtered.sort(
+          (a, b) => (b.like_count ?? 0) - (a.like_count ?? 0)
+        );
+        break;
+    }
+
+    return filtered;
+  }, [allPosts, categorySlug, sortBy]);
 
   return (
-    <div className="container py-8">
-      {/* Breadcrumb & Back Button */}
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/blog">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück zum Blog
-          </Link>
-        </Button>
-      </div>
-
-      {/* Category Header */}
-      <div className="mb-8">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-3">
-              <Badge className={categoryMeta.color} variant="secondary">
-                {categoryMeta.name}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {categoryMeta.count} Artikel
-              </span>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center gap-4 mb-4">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/blog/categories">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            <FolderOpen className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">{categoryName}</h1>
+              <p className="text-muted-foreground mt-1">
+                {isLoading
+                  ? 'Loading...'
+                  : `${categoryPosts.length} article${categoryPosts.length !== 1 ? 's' : ''} in this category`}
+              </p>
             </div>
-            <h1 className="text-4xl font-bold mb-3">{categoryMeta.name}</h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              {categoryMeta.description}
-            </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Bookmark className="h-4 w-4" />
-            Kategorie folgen
-          </Button>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-4 gap-8">
-        {/* Sidebar - Filters */}
-        <aside className="lg:col-span-1">
-          <div className="sticky top-24">
-            <BlogFiltersSection />
+      {/* Content */}
+      <div className="container mx-auto px-4 py-8">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        </aside>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-destructive">Error loading category articles</p>
+            <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+          </div>
+        ) : categoryPosts.length === 0 ? (
+          <div className="text-center py-12">
+            <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-4">
+              No articles found in category &quot;{categoryName}&quot;
+            </p>
+            <Button asChild>
+              <Link href="/blog">Browse All Articles</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Sidebar */}
+            <div className="lg:col-span-1">
+              <Card className="p-6 sticky top-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <SlidersHorizontal className="h-5 w-5" />
+                  <h2 className="font-semibold">Filters</h2>
+                </div>
 
-        {/* Main Content - Articles Grid */}
-        <div className="lg:col-span-3">
-          <BlogGrid posts={mockCategoryPosts} />
-        </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Sort By
+                    </label>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recent">Most Recent</SelectItem>
+                        <SelectItem value="popular">Most Popular</SelectItem>
+                        <SelectItem value="trending">Trending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Related Categories</h3>
+                    <div className="space-y-2">
+                      {Array.from(
+                        new Set(
+                          (allPosts || [])
+                            .map((post) => post.category)
+                            .filter(Boolean)
+                        )
+                      )
+                        .filter(
+                          (cat) =>
+                            cat!.toLowerCase().replace(/\s+/g, '-') !== categorySlug
+                        )
+                        .slice(0, 5)
+                        .map((category) => (
+                          <Link
+                            key={category}
+                            href={`/blog/category/${category!.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            <Badge
+                              variant="outline"
+                              className="w-full justify-start hover:bg-primary hover:text-primary-foreground transition-colors"
+                            >
+                              {category}
+                            </Badge>
+                          </Link>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Articles Grid */}
+            <div className="lg:col-span-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {categoryPosts.map((post) => (
+                  <Link key={post.id} href={`/blog/${post.slug}`}>
+                    <Card className="p-6 hover:shadow-lg transition-all">
+                      <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+                        {post.excerpt}
+                      </p>
+                      {post.category && (
+                        <Badge variant="secondary">{post.category}</Badge>
+                      )}
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

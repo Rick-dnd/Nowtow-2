@@ -1,31 +1,33 @@
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient, type UseQueryResult, type UseMutationResult, type UseInfiniteQueryResult } from '@tanstack/react-query';
-import { blogService, type BlogFilters, type BlogComment } from '@/services/blog.service';
+import { blogService, type BlogFilters, type BlogComment, type BlogPostWithAuthor, type BlogCommentWithAuthor, type AuthorWithStats, type AuthorProfile } from '@/services/blog.service';
 import type { BlogPost, BlogPostInsert, BlogPostUpdate } from '@/types/database';
 
-export function useBlogPosts(filters?: BlogFilters): UseQueryResult<BlogPost[], Error> {
+export function useBlogPosts(filters?: BlogFilters): UseQueryResult<BlogPostWithAuthor[], Error> {
   return useQuery({
     queryKey: ['blog-posts', filters],
-    queryFn: (): Promise<BlogPost[]> => blogService.getBlogPosts(filters),
+    queryFn: (): Promise<BlogPostWithAuthor[]> => blogService.getBlogPosts(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
-export function useBlogPost(id: string | undefined): UseQueryResult<BlogPost | null, Error> {
+export function useBlogPost(id: string | undefined): UseQueryResult<BlogPostWithAuthor | null, Error> {
   return useQuery({
     queryKey: ['blog-posts', id],
-    queryFn: (): Promise<BlogPost | null> => {
+    queryFn: (): Promise<BlogPostWithAuthor | null> => {
       if (!id) return Promise.resolve(null);
       return blogService.getBlogPost(id);
     },
     enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
 export function useInfiniteBlogPosts(
   filters?: BlogFilters
-): UseInfiniteQueryResult<BlogPost[], Error> {
+): UseInfiniteQueryResult<BlogPostWithAuthor[], Error> {
   return useInfiniteQuery({
     queryKey: ['blog-posts', 'infinite', filters],
-    queryFn: async ({ pageParam = 0 }): Promise<BlogPost[]> => {
+    queryFn: async ({ pageParam = 0 }): Promise<BlogPostWithAuthor[]> => {
       return blogService.getBlogPosts({
         ...filters,
         limit: 10,
@@ -135,14 +137,15 @@ export function useCreateBlogComment(): UseMutationResult<BlogComment, Error, { 
   });
 }
 
-export function useBlogComments(postId: string | undefined): UseQueryResult<BlogComment[], Error> {
+export function useBlogComments(postId: string | undefined): UseQueryResult<BlogCommentWithAuthor[], Error> {
   return useQuery({
     queryKey: ['blog-comments', postId],
-    queryFn: (): Promise<BlogComment[]> => {
+    queryFn: (): Promise<BlogCommentWithAuthor[]> => {
       if (!postId) return Promise.resolve([]);
       return blogService.getBlogComments(postId);
     },
     enabled: !!postId,
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 }
 
@@ -154,5 +157,55 @@ export function useDeleteBlogComment(): UseMutationResult<void, Error, string> {
     onSuccess: (): void => {
       queryClient.invalidateQueries({ queryKey: ['blog-comments'] });
     },
+  });
+}
+
+export function useBlogStats(): UseQueryResult<
+  {
+    total_articles: number;
+    total_comments: number;
+    categories: Array<{ name: string; count: number }>;
+  },
+  Error
+> {
+  return useQuery({
+    queryKey: ['blog-stats'],
+    queryFn: (): Promise<{
+      total_articles: number;
+      total_comments: number;
+      categories: Array<{ name: string; count: number }>;
+    }> => blogService.getBlogStats(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function usePopularBlogPosts(
+  limit = 5
+): UseQueryResult<BlogPostWithAuthor[], Error> {
+  return useQuery({
+    queryKey: ['popular-blog-posts', limit],
+    queryFn: (): Promise<BlogPostWithAuthor[]> =>
+      blogService.getPopularBlogPosts(limit),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+export function useAuthors(): UseQueryResult<AuthorWithStats[], Error> {
+  return useQuery({
+    queryKey: ['authors'],
+    queryFn: (): Promise<AuthorWithStats[]> => blogService.getAuthors(),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+export function useAuthorProfile(username: string | undefined): UseQueryResult<AuthorProfile | null, Error> {
+  return useQuery({
+    queryKey: ['author-profile', username],
+    queryFn: (): Promise<AuthorProfile | null> => {
+      if (!username) return Promise.resolve(null);
+      return blogService.getAuthorByUsername(username);
+    },
+    enabled: !!username,
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 }

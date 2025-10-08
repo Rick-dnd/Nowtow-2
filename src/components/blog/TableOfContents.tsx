@@ -95,7 +95,7 @@ export function TableOfContents({
   return (
     <Card className={cn('sticky top-24', className)}>
       <CardHeader>
-        <CardTitle className="text-base">Table of Contents</CardTitle>
+        <CardTitle className="text-base">Inhaltsverzeichnis</CardTitle>
       </CardHeader>
       <CardContent>
         <nav aria-label="Table of contents">

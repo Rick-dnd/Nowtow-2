@@ -43,10 +43,10 @@ export function MediaUploader({
 
   const validateFile = (file: File): string | null => {
     if (!acceptedTypes.includes(file.type)) {
-      return `File type ${file.type} is not accepted`;
+      return `Dateityp ${file.type} wird nicht akzeptiert`;
     }
     if (file.size > maxFileSize) {
-      return `File size ${formatFileSize(file.size)} exceeds maximum ${formatFileSize(maxFileSize)}`;
+      return `Dateigröße ${formatFileSize(file.size)} überschreitet Maximum ${formatFileSize(maxFileSize)}`;
     }
     return null;
   };
@@ -56,7 +56,7 @@ export function MediaUploader({
 
     // Check total file count
     if (files.length + filesArray.length > maxFiles) {
-      setError(`Maximum ${maxFiles} files allowed`);
+      setError(`Maximal ${maxFiles} Dateien erlaubt`);
       return;
     }
 
@@ -172,21 +172,21 @@ export function MediaUploader({
               <Upload className="h-8 w-8 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">
-                  Drag and drop your files here, or{' '}
+                  Ziehe deine Dateien hierher, oder{' '}
                   <button
                     type="button"
                     onClick={handleBrowseClick}
                     className="text-primary underline-offset-4 hover:underline"
                     aria-label="Browse files"
                   >
-                    browse
+                    durchsuche
                   </button>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Maximum {maxFiles} files • Up to {formatFileSize(maxFileSize)} each
+                  Maximal {maxFiles} Dateien • Bis zu {formatFileSize(maxFileSize)} jeweils
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Supports: Images (JPG, PNG, GIF, WebP) and Videos (MP4, WebM)
+                  Unterstützt: Bilder (JPG, PNG, GIF, WebP) und Videos (MP4, WebM)
                 </p>
               </div>
             </div>
@@ -274,7 +274,7 @@ export function MediaUploader({
       {/* File Count */}
       {files.length > 0 && (
         <p className="text-xs text-muted-foreground mt-2">
-          {files.length} / {maxFiles} file{files.length !== 1 ? 's' : ''} selected
+          {files.length} / {maxFiles} Datei{files.length !== 1 ? 'en' : ''} ausgewählt
         </p>
       )}
     </div>

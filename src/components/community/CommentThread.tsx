@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, MoreHorizontal, Flag } from 'lucide-react';
+import { SubscriptionBadge } from '@/components/ui/subscription-badge';
+import { Heart, MessageCircle, MoreHorizontal, Flag, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ export interface Comment {
     id: string;
     username: string;
     avatar: string | null;
+    subscription_tier?: 'free' | 'plus' | 'premium';
   };
   content: string;
   created_at: string;
@@ -32,6 +34,8 @@ interface CommentItemProps {
   onReply: (commentId: string, content: string) => void;
   onLike: (commentId: string) => void;
   onReport: (commentId: string) => void;
+  onDelete: (commentId: string) => void;
+  currentUserId?: string;
   depth?: number;
   maxDepth?: number;
 }
@@ -41,6 +45,8 @@ function CommentItem({
   onReply,
   onLike,
   onReport,
+  onDelete,
+  currentUserId,
   depth = 0,
   maxDepth = 3,
 }: CommentItemProps): React.ReactElement {
@@ -59,21 +65,30 @@ function CommentItem({
   const getTimeAgo = (dateString: string): string => {
     const now = new Date();
     const date = new Date(dateString);
+
+    // Fallback für ungültige Dates
+    if (isNaN(date.getTime())) {
+      return 'gerade eben';
+    }
+
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (seconds < 60) return `${seconds}s ago`;
+    // Negative Werte (zukünftige Timestamps) -> "gerade eben"
+    if (seconds < 0) return 'gerade eben';
+
+    if (seconds < 60) return `vor ${seconds}s`;
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 60) return `vor ${minutes}m`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `vor ${hours}h`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
+    if (days < 7) return `vor ${days}T`;
     const weeks = Math.floor(days / 7);
-    if (weeks < 4) return `${weeks}w ago`;
+    if (weeks < 4) return `vor ${weeks}W`;
     const months = Math.floor(days / 30);
-    if (months < 12) return `${months}mo ago`;
+    if (months < 12) return `vor ${months}M`;
     const years = Math.floor(days / 365);
-    return `${years}y ago`;
+    return `vor ${years}J`;
   };
 
   const canNest = depth < maxDepth;
@@ -93,8 +108,13 @@ function CommentItem({
         {/* Comment Content */}
         <div className="flex-1 min-w-0 space-y-1">
           {/* Header */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-semibold">@{comment.author.username}</span>
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold">@{comment.author.username}</span>
+              {comment.author.subscription_tier && (
+                <SubscriptionBadge tier={comment.author.subscription_tier} size="sm" />
+              )}
+            </div>
             <span className="text-xs text-muted-foreground">•</span>
             <span className="text-xs text-muted-foreground">{getTimeAgo(comment.created_at)}</span>
           </div>
@@ -124,7 +144,7 @@ function CommentItem({
                 onClick={() => setIsReplying(!isReplying)}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
-                <span className="text-xs">Reply</span>
+                <span className="text-xs">Antworten</span>
               </Button>
             )}
 
@@ -136,9 +156,15 @@ function CommentItem({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {currentUserId === comment.author.id && (
+                  <DropdownMenuItem onClick={() => onDelete(comment.id)} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Löschen
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => onReport(comment.id)}>
                   <Flag className="mr-2 h-4 w-4" />
-                  Report
+                  Melden
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -148,7 +174,7 @@ function CommentItem({
           {isReplying && (
             <div className="mt-2 space-y-2">
               <Textarea
-                placeholder={`Reply to @${comment.author.username}...`}
+                placeholder={`Antwort an @${comment.author.username}...`}
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
                 className="min-h-[60px] text-sm"
@@ -156,10 +182,10 @@ function CommentItem({
               />
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleReplySubmit} disabled={replyContent.trim() === ''}>
-                  Reply
+                  Antworten
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setIsReplying(false)}>
-                  Cancel
+                  Abbrechen
                 </Button>
               </div>
             </div>
@@ -173,7 +199,7 @@ function CommentItem({
               className="h-7 px-2 text-xs text-primary"
               onClick={() => setShowReplies(true)}
             >
-              View {comment.replies?.length ?? 0} {comment.replies?.length === 1 ? 'reply' : 'replies'}
+              {comment.replies?.length ?? 0} {comment.replies?.length === 1 ? 'Antwort' : 'Antworten'} anzeigen
             </Button>
           )}
         </div>
@@ -189,6 +215,8 @@ function CommentItem({
               onReply={onReply}
               onLike={onLike}
               onReport={onReport}
+              onDelete={onDelete}
+              currentUserId={currentUserId}
               depth={depth + 1}
               maxDepth={maxDepth}
             />
@@ -200,7 +228,7 @@ function CommentItem({
               className="h-7 px-2 text-xs text-muted-foreground"
               onClick={() => setShowReplies(false)}
             >
-              Hide replies
+              Antworten verbergen
             </Button>
           )}
         </div>
@@ -216,6 +244,7 @@ interface CommentThreadProps {
   onReply: (commentId: string, content: string) => void;
   onLike: (commentId: string) => void;
   onReport: (commentId: string) => void;
+  onDelete: (commentId: string) => void;
   currentUserId?: string;
   maxDepth?: number;
 }
@@ -226,6 +255,8 @@ export function CommentThread({
   onReply,
   onLike,
   onReport,
+  onDelete,
+  currentUserId,
   postId,
   maxDepth = 3,
 }: CommentThreadProps): React.ReactElement {
@@ -273,17 +304,17 @@ export function CommentThread({
       {/* Add Comment Input */}
       <div className="space-y-2">
         <Textarea
-          placeholder="Write a comment..."
+          placeholder="Schreibe einen Kommentar..."
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           className="min-h-[80px]"
           maxLength={1000}
-          aria-label="Add a comment"
+          aria-label="Kommentar hinzufügen"
         />
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">{newComment.length}/1000</span>
           <Button onClick={handleAddComment} disabled={newComment.trim() === ''} size="sm">
-            Comment
+            Kommentieren
           </Button>
         </div>
       </div>
@@ -292,7 +323,7 @@ export function CommentThread({
       <div className="space-y-4">
         {rootComments.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            No comments yet. Be the first to comment!
+            Noch keine Kommentare. Sei der Erste, der kommentiert!
           </p>
         ) : (
           rootComments.map((comment) => (
@@ -302,6 +333,8 @@ export function CommentThread({
               onReply={onReply}
               onLike={onLike}
               onReport={onReport}
+              onDelete={onDelete}
+              currentUserId={currentUserId}
               depth={0}
               maxDepth={maxDepth}
             />

@@ -57,6 +57,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-manrope), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 }
 
@@ -197,4 +198,14 @@
 
 .yarl__toolbar_button:hover {
   background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Shimmer animation for Premium badges */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }

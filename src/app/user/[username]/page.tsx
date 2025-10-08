@@ -3,33 +3,9 @@
 import React, { use, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { emptyEvents, emptySpaces, emptyServices } from '@/lib/placeholder-data';
 import { notFound } from 'next/navigation';
-
-// Mock profiles temporarily until we implement user profiles properly
-const mockProfiles: Array<{
-  id: string;
-  username: string;
-  full_name: string | null;
-  avatar_url?: string;
-  subscription_tier?: string;
-  is_host?: boolean;
-  location?: string;
-  website?: string;
-  bio?: string;
-  trust_score?: number;
-}> = [
-  {
-    id: '1',
-    username: 'demo',
-    full_name: 'Demo User',
-    subscription_tier: 'free',
-    is_host: false,
-    trust_score: 85,
-  },
-];
 import Image from 'next/image';
-import { MapPin, Link as LinkIcon, Calendar, MoreVertical, MessageCircle, Flag, Ban, Settings, UserPlus, UserMinus } from 'lucide-react';
+import { MapPin, Link as LinkIcon, Calendar, MoreVertical, MessageCircle, Flag, Ban, Settings, UserPlus, UserMinus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +21,9 @@ import {
 import { EventCard } from '@/components/cards/EventCard';
 import { SpaceCard } from '@/components/cards/SpaceCard';
 import { ServiceCard } from '@/components/services/ServiceCard';
+import { useProfile, useUserContent, useProfileStats, useIsFollowing, useFollowUser, useUnfollowUser } from '@/hooks/useProfiles';
+import { useUser } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -52,39 +31,83 @@ interface PageProps {
 
 export default function UserProfilePage({ params }: PageProps): React.ReactElement {
   const { username } = use(params);
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [activeTab, setActiveTab] = useState('events');
 
-  // Find profile by username
-  const profile = mockProfiles.find((p) => p.username === username);
+  // Fetch current user
+  const { data: currentUser } = useUser();
 
-  if (!profile) {
+  // Fetch profile data
+  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile(username);
+  const { data: userContent, isLoading: contentLoading } = useUserContent(profile?.id);
+  const { data: stats, isLoading: statsLoading } = useProfileStats(profile?.id);
+  const { data: isFollowing, isLoading: followCheckLoading } = useIsFollowing(currentUser?.id, profile?.id);
+
+  // Mutations
+  const followMutation = useFollowUser();
+  const unfollowMutation = useUnfollowUser();
+
+  // Check if viewing own profile
+  const isOwnProfile = currentUser?.id === profile?.id;
+
+  const handleFollowToggle = (): void => {
+    if (!currentUser || !profile) {
+      toast.error('Bitte melde dich an, um jemandem zu folgen');
+      return;
+    }
+
+    if (isFollowing) {
+      unfollowMutation.mutate(
+        { followerId: currentUser.id, followingId: profile.id },
+        {
+          onSuccess: (): void => {
+            toast.success('Du folgst diesem Nutzer nicht mehr');
+          },
+          onError: (error: Error): void => {
+            toast.error(`Fehler: ${error.message}`);
+          },
+        }
+      );
+    } else {
+      followMutation.mutate(
+        { followerId: currentUser.id, followingId: profile.id },
+        {
+          onSuccess: (): void => {
+            toast.success('Du folgst diesem Nutzer jetzt');
+          },
+          onError: (error: Error): void => {
+            toast.error(`Fehler: ${error.message}`);
+          },
+        }
+      );
+    }
+  };
+
+  // Loading state
+  if (profileLoading || followCheckLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pt-16 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-lg text-muted-foreground">Lade Profil...</p>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  // Error or not found
+  if (profileError || !profile) {
     notFound();
   }
 
-  // Check if viewing own profile (simplified - in real app would compare user IDs)
-  const isOwnProfile = false;
-
-  // Mock stats
-  const stats = {
-    following: 234,
-    followers: 1234,
-    events: emptyEvents.length,
-    totalBookings: 234,
-    responseTime: '2h',
-    acceptanceRate: 95,
-  };
-
-  // Filter user's content (empty for now, will be fetched from Supabase when user system is implemented)
-  const userEvents = emptyEvents.slice(0, 6);
-  const userSpaces = emptySpaces.slice(0, 4);
-  const userServices = emptyServices.slice(0, 3);
-
-  const handleFollowToggle = (): void => {
-    setIsFollowing(!isFollowing);
-  };
+  const userEvents = userContent?.events || [];
+  const userSpaces = userContent?.spaces || [];
+  const userServices = userContent?.services || [];
 
   // Mock languages from profile or default
-  const languages = ['Deutsch', 'English']; // In real app would come from profile data
+  const languages = ['Deutsch', 'English'];
 
   return (
     <>
@@ -92,7 +115,6 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
       <main className="min-h-screen pt-16">
         {/* Cover Photo */}
         <div className="relative w-full h-[300px] bg-gradient-to-r from-primary/20 to-accent/20">
-          {/* Mock cover photo - in real app would be profile.cover_photo_url */}
           <Image
             src="https://images.unsplash.com/photo-1519681393784-d120267933ba"
             alt="Cover Photo"
@@ -119,7 +141,7 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h1 className="text-2xl font-bold">{profile.full_name}</h1>
+                      <h1 className="text-2xl font-bold">{profile.full_name || profile.username}</h1>
                       {profile.subscription_tier === 'premium' && (
                         <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                           ✓ Verified
@@ -130,9 +152,11 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                     {profile.is_host && (
                       <p className="text-sm text-muted-foreground mt-1">Event Host & Space Owner</p>
                     )}
-                    <div className="flex items-center gap-1 text-sm text-yellow-600 mt-1">
-                      ⭐ 4.8 Rating • 🏅 Ambassador
-                    </div>
+                    {stats && stats.average_rating > 0 && (
+                      <div className="flex items-center gap-1 text-sm text-yellow-600 mt-1">
+                        ⭐ {stats.average_rating.toFixed(1)} Rating
+                      </div>
+                    )}
                   </div>
 
                   {/* Action Buttons */}
@@ -148,6 +172,7 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                           onClick={handleFollowToggle}
                           className="gap-2"
                           variant={isFollowing ? 'outline' : 'default'}
+                          disabled={followMutation.isPending || unfollowMutation.isPending}
                         >
                           {isFollowing ? (
                             <>
@@ -212,7 +237,9 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                   )}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Joined January 2024</span>
+                    <span>
+                      Joined {new Date(profile.created_at || '').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
+                    </span>
                   </div>
                 </div>
 
@@ -222,20 +249,22 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                 )}
 
                 {/* Stats */}
-                <div className="flex items-center gap-6 mt-4">
-                  <button className="hover:underline">
-                    <span className="font-semibold">{stats.following}</span>{' '}
-                    <span className="text-muted-foreground">Following</span>
-                  </button>
-                  <button className="hover:underline">
-                    <span className="font-semibold">{stats.followers}</span>{' '}
-                    <span className="text-muted-foreground">Followers</span>
-                  </button>
-                  <button className="hover:underline">
-                    <span className="font-semibold">{stats.events}</span>{' '}
-                    <span className="text-muted-foreground">Events</span>
-                  </button>
-                </div>
+                {!statsLoading && stats && (
+                  <div className="flex items-center gap-6 mt-4">
+                    <button className="hover:underline">
+                      <span className="font-semibold">{stats.following_count}</span>{' '}
+                      <span className="text-muted-foreground">Following</span>
+                    </button>
+                    <button className="hover:underline">
+                      <span className="font-semibold">{stats.followers_count}</span>{' '}
+                      <span className="text-muted-foreground">Followers</span>
+                    </button>
+                    <button className="hover:underline">
+                      <span className="font-semibold">{stats.events_count}</span>{' '}
+                      <span className="text-muted-foreground">Events</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -244,7 +273,7 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-8">
             {/* Left Column - Tabs */}
             <div className="lg:col-span-2">
-              <Tabs defaultValue="events">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="events">Events</TabsTrigger>
                   <TabsTrigger value="spaces">Spaces</TabsTrigger>
@@ -254,27 +283,72 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                 </TabsList>
 
                 <TabsContent value="events" className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {userEvents.map((event, index) => (
-                      <EventCard key={index} event={event} />
-                    ))}
-                  </div>
+                  {contentLoading ? (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                        <p className="text-muted-foreground">Lädt Events...</p>
+                      </CardContent>
+                    </Card>
+                  ) : userEvents.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userEvents.map((event) => (
+                        <EventCard key={event.id} event={event} />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <p className="text-muted-foreground">Keine Events gefunden</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="spaces" className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {userSpaces.map((space, index) => (
-                      <SpaceCard key={index} space={space} />
-                    ))}
-                  </div>
+                  {contentLoading ? (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                        <p className="text-muted-foreground">Lädt Spaces...</p>
+                      </CardContent>
+                    </Card>
+                  ) : userSpaces.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userSpaces.map((space) => (
+                        <SpaceCard key={space.id} space={space} />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <p className="text-muted-foreground">Keine Spaces gefunden</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="services" className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {userServices.map((service, index) => (
-                      <ServiceCard key={index} service={service} />
-                    ))}
-                  </div>
+                  {contentLoading ? (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                        <p className="text-muted-foreground">Lädt Services...</p>
+                      </CardContent>
+                    </Card>
+                  ) : userServices.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userServices.map((service) => (
+                        <ServiceCard key={service.id} service={service} />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <p className="text-muted-foreground">Keine Services gefunden</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="reviews" className="mt-6">
@@ -283,7 +357,7 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                       <CardTitle>Reviews</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground">No reviews yet.</p>
+                      <p className="text-muted-foreground">Keine Reviews vorhanden.</p>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -294,7 +368,7 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
                       <CardTitle>Badges & Achievements</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground">No badges earned yet.</p>
+                      <p className="text-muted-foreground">Keine Badges vorhanden.</p>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -303,60 +377,42 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
 
             {/* Right Sidebar */}
             <div className="space-y-6">
-              {/* Achievements */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Achievements</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">🏅</div>
-                    <div>
-                      <p className="font-semibold text-sm">Event Master</p>
-                      <p className="text-xs text-muted-foreground">Hosted 50+ events</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">⭐</div>
-                    <div>
-                      <p className="font-semibold text-sm">Super Host</p>
-                      <p className="text-xs text-muted-foreground">4.9+ avg rating</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">🎯</div>
-                    <div>
-                      <p className="font-semibold text-sm">Early Adopter</p>
-                      <p className="text-xs text-muted-foreground">Joined in beta</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Events:</span>
-                    <span className="font-semibold">{stats.events}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Bookings:</span>
-                    <span className="font-semibold">{stats.totalBookings}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Response Time:</span>
-                    <span className="font-semibold">{stats.responseTime}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Acceptance Rate:</span>
-                    <span className="font-semibold">{stats.acceptanceRate}%</span>
-                  </div>
-                </CardContent>
-              </Card>
+              {!statsLoading && stats && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Events:</span>
+                      <span className="font-semibold">{stats.events_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Spaces:</span>
+                      <span className="font-semibold">{stats.spaces_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Services:</span>
+                      <span className="font-semibold">{stats.services_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Bookings:</span>
+                      <span className="font-semibold">{stats.total_bookings}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Reviews:</span>
+                      <span className="font-semibold">{stats.reviews_count}</span>
+                    </div>
+                    {stats.average_rating > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Average Rating:</span>
+                        <span className="font-semibold">{stats.average_rating.toFixed(1)}/5.0</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Languages */}
               <Card>
@@ -375,18 +431,19 @@ export default function UserProfilePage({ params }: PageProps): React.ReactEleme
               </Card>
 
               {/* Social Proof */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Social Proof</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">Verified by 12 users</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Trust Score:</span>
-                    <span className="font-semibold">{profile.trust_score}/100</span>
-                  </div>
-                </CardContent>
-              </Card>
+              {profile.trust_score && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Social Proof</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Trust Score:</span>
+                      <span className="font-semibold">{profile.trust_score}/100</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

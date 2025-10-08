@@ -1,185 +1,137 @@
+'use client';
+
 import React from 'react';
-import { BlogFiltersSection } from '@/components/blog/BlogFiltersSection';
-import { BlogGrid } from '@/components/blog/BlogGrid';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Hash, Bookmark } from 'lucide-react';
-import Link from 'next/link';
+import { ArrowLeft, Tag, Loader2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { useBlogPosts } from '@/hooks/useBlog';
 
 interface TagPageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 }
 
-// Mock tags metadata
-const tagsData: Record<string, { name: string; description: string; count: number }> = {
-  'berlin': {
-    name: 'Berlin',
-    description: 'Alle Events und Artikel rund um Berlin',
-    count: 234,
-  },
-  'summer-2024': {
-    name: 'Summer 2024',
-    description: 'Die Highlights der Sommersaison 2024',
-    count: 156,
-  },
-  'festival': {
-    name: 'Festival',
-    description: 'Festival-Guides, Tipps und Erfahrungsberichte',
-    count: 89,
-  },
-  'local-tipps': {
-    name: 'Local Tipps',
-    description: 'Insider-Tipps von Locals für Locals',
-    count: 178,
-  },
-  'fotografie': {
-    name: 'Fotografie',
-    description: 'Fotografie-Events, Ausstellungen und Tipps',
-    count: 67,
-  },
-  'nachhaltig': {
-    name: 'Nachhaltig',
-    description: 'Nachhaltige Events und umweltfreundliche Veranstaltungen',
-    count: 45,
-  },
-};
+export default function TagPage({ params }: TagPageProps): React.ReactElement {
+  const [tagSlug, setTagSlug] = React.useState<string>('');
+  const { data: allPosts, isLoading, error } = useBlogPosts();
 
-// Mock blog posts for tag
-const mockTagPosts = [
-  {
-    id: '1',
-    title: 'Berlin Summer Guide 2024',
-    excerpt: 'Die besten Events, Locations und Geheimtipps für den Sommer in Berlin',
-    image: '/images/blog/berlin-summer.jpg',
-    category: 'kultur',
-    author: {
-      name: 'Lisa Müller',
-      avatar: null,
-    },
-    published_date: '2024-06-20',
-    reading_time: 10,
-    likes: 456,
-    comments: 67,
-  },
-  {
-    id: '2',
-    title: 'Versteckte Perlen in Berlin entdecken',
-    excerpt: 'Orte abseits der Touristenpfade, die du kennen solltest',
-    image: '/images/blog/hidden-berlin.jpg',
-    category: 'kultur',
-    author: {
-      name: 'Thomas Klein',
-      avatar: null,
-    },
-    published_date: '2024-06-18',
-    reading_time: 7,
-    likes: 312,
-    comments: 45,
-  },
-];
+  React.useEffect((): void => {
+    void params.then((resolvedParams) => {
+      setTagSlug(resolvedParams.slug);
+    });
+  }, [params]);
 
-// Related tags
-const relatedTags = [
-  { slug: 'munich', name: 'München' },
-  { slug: 'hamburg', name: 'Hamburg' },
-  { slug: 'cologne', name: 'Köln' },
-  { slug: 'frankfurt', name: 'Frankfurt' },
-];
+  const tagName = React.useMemo(() => {
+    return tagSlug
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }, [tagSlug]);
 
-export default async function BlogTagPage({ params }: TagPageProps): Promise<React.ReactElement> {
-  const { slug } = await params;
-  const tagMeta = tagsData[slug];
-
-  if (!tagMeta) {
-    return (
-      <div className="container max-w-4xl py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Tag nicht gefunden</h1>
-        <p className="text-muted-foreground mb-6">
-          Das gesuchte Tag existiert nicht.
-        </p>
-        <Button asChild>
-          <Link href="/blog">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück zum Blog
-          </Link>
-        </Button>
-      </div>
-    );
-  }
+  const taggedPosts = React.useMemo(() => {
+    if (!allPosts || !tagSlug) return [];
+    return (allPosts || []).filter((post) => {
+      const tags = (post.tags as string[] | null) ?? [];
+      return tags.some(
+        (tag) => tag.toLowerCase().replace(/\s+/g, '-') === tagSlug
+      );
+    });
+  }, [allPosts, tagSlug]);
 
   return (
-    <div className="container py-8">
-      {/* Breadcrumb & Back Button */}
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/blog">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück zum Blog
-          </Link>
-        </Button>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center gap-4 mb-4">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/blog">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            <Tag className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">#{tagName}</h1>
+              <p className="text-muted-foreground mt-1">
+                {isLoading
+                  ? 'Loading...'
+                  : `${taggedPosts.length} article${taggedPosts.length !== 1 ? 's' : ''} tagged with ${tagName}`}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tag Header */}
-      <div className="mb-8">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <Hash className="h-5 w-5 text-primary" />
-                <Badge variant="secondary">
-                  {tagMeta.name}
-                </Badge>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {tagMeta.count} Artikel
-              </span>
-            </div>
-            <h1 className="text-4xl font-bold mb-3">#{tagMeta.name}</h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              {tagMeta.description}
-            </p>
+      {/* Content */}
+      <div className="container mx-auto px-4 py-8">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Bookmark className="h-4 w-4" />
-            Tag folgen
-          </Button>
-        </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-destructive">Error loading tagged articles</p>
+            <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+          </div>
+        ) : taggedPosts.length === 0 ? (
+          <div className="text-center py-12">
+            <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-4">
+              No articles found with tag &quot;{tagName}&quot;
+            </p>
+            <Button asChild>
+              <Link href="/blog">Browse All Articles</Link>
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Related Tags */}
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold mb-3">Related Tags</h2>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(
+                  new Set(
+                    taggedPosts.flatMap((post) => (post.tags as string[] | null) ?? [])
+                  )
+                )
+                  .filter((tag) => tag.toLowerCase().replace(/\s+/g, '-') !== tagSlug)
+                  .slice(0, 10)
+                  .map((tag) => (
+                    <Link
+                      key={tag}
+                      href={`/blog/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      <Badge variant="secondary" className="hover:bg-primary hover:text-primary-foreground transition-colors">
+                        {tag}
+                      </Badge>
+                    </Link>
+                  ))}
+              </div>
+            </div>
 
-        {/* Related Tags */}
-        {relatedTags.length > 0 && (
-          <div className="mt-6">
-            <p className="text-sm font-medium mb-3">Ähnliche Tags:</p>
-            <div className="flex flex-wrap gap-2">
-              {relatedTags.map((tag) => (
-                <Button
-                  key={tag.slug}
-                  variant="outline"
-                  size="sm"
-                  asChild
-                >
-                  <Link href={`/blog/tag/${tag.slug}`}>
-                    <Hash className="h-3 w-3 mr-1" />
-                    {tag.name}
-                  </Link>
-                </Button>
+            {/* Articles */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {taggedPosts.map((post) => (
+                <Link key={post.id} href={`/blog/${post.slug}`}>
+                  <Card className="p-6 hover:shadow-lg transition-all">
+                    <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+                      {post.excerpt}
+                    </p>
+                    {post.category && (
+                      <Badge variant="secondary">{post.category}</Badge>
+                    )}
+                  </Card>
+                </Link>
               ))}
             </div>
-          </div>
+          </>
         )}
-      </div>
-
-      <div className="grid lg:grid-cols-4 gap-8">
-        {/* Sidebar - Filters */}
-        <aside className="lg:col-span-1">
-          <div className="sticky top-24">
-            <BlogFiltersSection />
-          </div>
-        </aside>
-
-        {/* Main Content - Articles Grid */}
-        <div className="lg:col-span-3">
-          <BlogGrid posts={mockTagPosts} />
-        </div>
       </div>
     </div>
   );

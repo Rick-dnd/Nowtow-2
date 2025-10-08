@@ -41,20 +41,20 @@ export function PollDisplay({ pollData, onVote, className }: PollDisplayProps): 
     const diff = endDate.getTime() - now.getTime();
 
     if (diff <= 0) {
-      return 'Poll ended';
+      return 'Umfrage beendet';
     }
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
 
     if (days > 0) {
-      return `${days} day${days > 1 ? 's' : ''} left`;
+      return `${days} Tag${days > 1 ? 'e' : ''} übrig`;
     }
     if (hours > 0) {
-      return `${hours} hour${hours > 1 ? 's' : ''} left`;
+      return `${hours} Stunde${hours > 1 ? 'n' : ''} übrig`;
     }
     const minutes = Math.floor(diff / (1000 * 60));
-    return `${minutes} minute${minutes > 1 ? 's' : ''} left`;
+    return `${minutes} Minute${minutes > 1 ? 'n' : ''} übrig`;
   };
 
   // Calculate percentage for each option
@@ -98,7 +98,7 @@ export function PollDisplay({ pollData, onVote, className }: PollDisplayProps): 
         <div>
           <h3 className="font-semibold text-sm mb-1">{pollData.question}</h3>
           <p className="text-xs text-muted-foreground">
-            {pollData.totalVotes} vote{pollData.totalVotes !== 1 ? 's' : ''} • {getTimeRemaining()}
+            {pollData.totalVotes} Stimme{pollData.totalVotes !== 1 ? 'n' : ''} • {getTimeRemaining()}
           </p>
         </div>
 
@@ -157,7 +157,7 @@ export function PollDisplay({ pollData, onVote, className }: PollDisplayProps): 
                     <div className="flex items-center gap-2">
                       <span className={isUserVote ? 'font-semibold' : ''}>{option.text}</span>
                       {isUserVote && (
-                        <Check className="h-4 w-4 text-primary" aria-label="Your vote" />
+                        <Check className="h-4 w-4 text-primary" aria-label="Deine Stimme" />
                       )}
                     </div>
                     <span className="font-semibold">{percentage}%</span>
@@ -165,10 +165,10 @@ export function PollDisplay({ pollData, onVote, className }: PollDisplayProps): 
                   <Progress
                     value={percentage}
                     className="h-2"
-                    aria-label={`${option.text}: ${percentage}% (${option.votes} votes)`}
+                    aria-label={`${option.text}: ${percentage}% (${option.votes} Stimmen)`}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {option.votes} vote{option.votes !== 1 ? 's' : ''}
+                    {option.votes} Stimme{option.votes !== 1 ? 'n' : ''}
                   </p>
                 </div>
               );
@@ -184,14 +184,14 @@ export function PollDisplay({ pollData, onVote, className }: PollDisplayProps): 
             className="w-full"
             size="sm"
           >
-            Vote
+            Abstimmen
           </Button>
         )}
 
         {/* Poll Ended Message */}
         {isPollEnded && (
           <p className="text-sm text-muted-foreground text-center">
-            This poll has ended
+            Diese Umfrage ist beendet
           </p>
         )}
       </div>
