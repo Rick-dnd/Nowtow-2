@@ -68,7 +68,7 @@ function SpacesPageContent(): React.ReactElement {
   return (
     <>
       <Header />
-      <main className="h-screen pt-16 flex">
+      <main className="h-screen pt-14 flex">
         {/* Left Sidebar with Filters and List */}
         <div className="w-[45%] flex-shrink-0 flex flex-col bg-background border-r border-border">
           {/* Filter Bar */}

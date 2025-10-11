@@ -113,7 +113,7 @@ export function CreatePostBox({ communityId = null }: CreatePostBoxProps): React
             placeholder="Was gibt's Neues?"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="min-h-[80px] resize-none border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-primary"
+            className="min-h-[80px] resize-none border-0 bg-muted/50 focus-visible:outline-none"
           />
 
           {/* Poll Preview */}

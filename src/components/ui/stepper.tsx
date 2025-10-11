@@ -39,7 +39,7 @@ export function Stepper({ steps, currentStep, onStepClick, className }: StepperP
                     disabled={!isClickable}
                     className={cn(
                       'flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all',
-                      'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+                      'focus:outline-none',
                       isCompleted && 'bg-primary border-primary text-primary-foreground',
                       isCurrent && 'border-primary text-primary',
                       !isCompleted && !isCurrent && 'border-muted-foreground/30 text-muted-foreground',
@@ -111,7 +111,7 @@ export function Stepper({ steps, currentStep, onStepClick, className }: StepperP
                   disabled={!isClickable}
                   className={cn(
                     'flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all flex-shrink-0',
-                    'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+                    'focus:outline-none',
                     isCompleted && 'bg-primary border-primary text-primary-foreground',
                     isCurrent && 'border-primary text-primary',
                     !isCompleted && !isCurrent && 'border-muted-foreground/30 text-muted-foreground',

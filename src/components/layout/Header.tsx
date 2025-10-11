@@ -102,12 +102,51 @@ export function Header(): React.ReactElement {
     }
   };
 
+  // Check if we're on a listing page (events, spaces, services)
+  const isListingPage = pathname?.startsWith('/events') ||
+                        pathname?.startsWith('/spaces') ||
+                        pathname?.startsWith('/services');
+
+  // Get header size based on page type and scroll state
+  const getHeaderSize = (): string => {
+    if (isListingPage) {
+      // On listing pages: Start extra small, grow to normal when scrolled
+      return isScrolled ? 'h-12 md:h-14' : 'h-10 md:h-12';
+    }
+    // On other pages: Start large, shrink when scrolled
+    return isScrolled ? 'h-12 md:h-14' : 'h-14 md:h-16';
+  };
+
+  const getHeaderClass = (): string => {
+    if (isListingPage) {
+      // On listing pages: Both states use scrolled styling
+      return 'glass-header-scrolled';
+    }
+    // On other pages: Normal behavior
+    return isScrolled ? 'glass-header-scrolled' : 'glass-header';
+  };
+
+  const getLogoSize = (): string => {
+    if (isListingPage) {
+      // On listing pages: Start tiny, grow when scrolled
+      return isScrolled ? 'h-8' : 'h-7';
+    }
+    // On other pages: Normal behavior
+    return isScrolled ? 'h-8' : 'h-10 md:h-12';
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 pt-3 px-4 md:px-6">
+    <header
+      className="fixed top-0 left-0 right-0 z-50 pt-3 px-4 md:px-6"
+      style={{
+        paddingRight: 'calc(1rem + var(--removed-body-scroll-bar-size, 0px))'
+      }}
+    >
       <div
         className={cn(
           'mx-auto max-w-7xl flex items-center justify-between px-4 md:px-6 header-transition rounded-2xl md:rounded-full',
-          isScrolled ? 'glass-header-scrolled h-12 md:h-14' : 'glass-header h-14 md:h-16'
+          getHeaderClass(),
+          getHeaderSize()
         )}
       >
         {/* Logo */}
@@ -120,7 +159,7 @@ export function Header(): React.ReactElement {
             priority
             className={cn(
               'logo-transition w-auto',
-              isScrolled ? 'h-8' : 'h-10 md:h-12'
+              getLogoSize()
             )}
           />
         </Link>
@@ -131,10 +170,10 @@ export function Header(): React.ReactElement {
             const isActive = pathname === link.href || pathname?.startsWith(`${link.href}/`);
             return (
               <DropdownMenu key={link.href}>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger asChild className="focus:outline-none focus-visible:outline-none">
                   <button
                     className={cn(
-                      'flex items-center gap-2 px-4 py-2 !rounded-full font-medium text-sm transition-all duration-300',
+                      'flex items-center gap-2 px-4 py-2 !rounded-full font-medium text-sm transition-all duration-300 focus:outline-none focus-visible:outline-none',
                       isActive
                         ? 'bg-primary text-primary-foreground shadow-lg hover:bg-primary/90'
                         : 'hover:bg-accent/80 hover:scale-105 hover:shadow-md active:scale-95'

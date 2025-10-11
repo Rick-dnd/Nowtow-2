@@ -47,7 +47,7 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
               setIndex(0);
               setOpen(true);
             }}
-            className="relative aspect-video w-full overflow-hidden rounded-lg cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            className="relative aspect-video w-full overflow-hidden rounded-lg cursor-pointer group focus:outline-none"
             aria-label={`Bild vergrößern: ${images[0]?.alt || 'Bild 1'}`}
           >
             <Image
@@ -68,7 +68,7 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
                 setIndex(0);
                 setOpen(true);
               }}
-              className="relative aspect-video w-full overflow-hidden rounded-lg cursor-pointer group col-span-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              className="relative aspect-video w-full overflow-hidden rounded-lg cursor-pointer group col-span-2 focus:outline-none"
               aria-label={`Hauptbild vergrößern: ${images[0]?.alt || 'Bild 1'}`}
             >
               <Image
@@ -97,7 +97,7 @@ export function ImageGallery({ images, className = '' }: ImageGalleryProps): Rea
                       setIndex(idx + 1);
                       setOpen(true);
                     }}
-                    className="relative aspect-square overflow-hidden rounded-lg cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    className="relative aspect-square overflow-hidden rounded-lg cursor-pointer group focus:outline-none"
                     aria-label={`Bild ${idx + 2} vergrößern: ${image.alt}`}
                   >
                     <Image

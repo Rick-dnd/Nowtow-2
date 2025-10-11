@@ -37,7 +37,7 @@ function ServicesPageContent(): React.ReactElement {
   return (
     <>
       <Header />
-      <main className="min-h-screen pt-16">
+      <main className="min-h-screen pt-14">
         {/* Search Bar */}
         <div className="bg-background border-b border-border">
           <div className="container mx-auto px-4 py-4">

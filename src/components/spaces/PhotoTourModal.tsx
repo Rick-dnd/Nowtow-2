@@ -141,7 +141,7 @@ export function PhotoTourModal({ open, onClose, images, spaceName }: PhotoTourMo
                               <button
                                 key={idx}
                                 onClick={() => handleImageClick(image.url)}
-                                className="relative aspect-square overflow-hidden rounded-lg cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                                className="relative aspect-square overflow-hidden rounded-lg cursor-pointer group focus:outline-none"
                                 aria-label={`${CATEGORY_LABELS[category]} - Bild ${idx + 1}`}
                               >
                                 <Image
