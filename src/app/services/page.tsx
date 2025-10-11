@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Search } from 'lucide-react';
@@ -16,8 +18,21 @@ const categories = [
   { id: 'workshop', label: 'Workshop' },
 ];
 
-export default function ServicesPage(): React.ReactElement {
-  // Fetch services from Supabase
+function ServicesPageContent(): React.ReactElement {
+  const searchParams = useSearchParams();
+  const [searchLocation, setSearchLocation] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // Initialize from URL parameters on mount
+  useEffect((): void => {
+    const location = searchParams.get('location') || '';
+    const category = searchParams.get('category');
+
+    setSearchLocation(location);
+    setSelectedCategory(category);
+  }, [searchParams]);
+
+  // Fetch services from Supabase (could be filtered based on search params)
   const { data: services } = useServices();
   return (
     <>
@@ -33,6 +48,8 @@ export default function ServicesPage(): React.ReactElement {
                 <input
                   type="text"
                   placeholder="Reiseziele suchen"
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
                   className="w-full text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground"
                 />
               </div>
@@ -73,7 +90,9 @@ export default function ServicesPage(): React.ReactElement {
         <div className="container mx-auto px-4 py-8">
           {categories.map((category) => (
             <div key={category.id} className="mb-12">
-              <h2 className="text-2xl font-bold mb-6">{category.label}</h2>
+              <h2 className={`text-2xl font-bold mb-6 ${selectedCategory === category.id ? 'text-primary' : ''}`}>
+                {category.label}
+              </h2>
 
               {/* Horizontal Scroll Container */}
               <div className="relative">
@@ -91,5 +110,13 @@ export default function ServicesPage(): React.ReactElement {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function ServicesPage(): React.ReactElement {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ServicesPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { SpacesFilterSidebar } from '@/components/spaces/SpacesFilterSidebar';
@@ -19,7 +20,9 @@ export interface SpaceFilters {
   instantBookOnly: boolean;
 }
 
-export default function SpacesPage(): React.ReactElement {
+function SpacesPageContent(): React.ReactElement {
+  const searchParams = useSearchParams();
+
   const [filters, setFilters] = useState<SpaceFilters>({
     search: '',
     spaceTypes: [],
@@ -32,6 +35,21 @@ export default function SpacesPage(): React.ReactElement {
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
+
+  // Initialize filters from URL parameters on mount
+  useEffect((): void => {
+    const location = searchParams.get('location') || '';
+    const category = searchParams.get('category');
+    const adults = parseInt(searchParams.get('adults') || '0');
+    const children = parseInt(searchParams.get('children') || '0');
+
+    setFilters(prev => ({
+      ...prev,
+      search: location,
+      spaceTypes: category ? [category] : [],
+      capacity: adults + children || 1,
+    }));
+  }, [searchParams]);
 
   // Fetch spaces from Supabase
   const { data: spaces } = useSpaces({
@@ -82,5 +100,13 @@ export default function SpacesPage(): React.ReactElement {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function SpacesPage(): React.ReactElement {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SpacesPageContent />
+    </Suspense>
   );
 }

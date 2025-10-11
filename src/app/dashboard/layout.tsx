@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   BarChart3,
@@ -104,10 +105,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps): Rea
       <div className="flex min-h-screen w-full">
         <Sidebar>
           <SidebarHeader className="border-b px-6 py-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="text-xl font-bold bg-gradient-to-r from-primary to-emerald-600 bg-clip-text text-transparent">
-                Nowtown
-              </div>
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/Logo-Dashboard.png"
+                alt="Nowtown Dashboard"
+                width={180}
+                height={60}
+                priority
+                className="h-10 w-auto"
+              />
             </Link>
           </SidebarHeader>
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { EventsFilterSidebar } from '@/components/events/EventsFilterSidebar';
@@ -17,7 +18,9 @@ export interface EventFilters {
   capacity: number;
 }
 
-export default function EventsPage(): React.ReactElement {
+function EventsPageContent(): React.ReactElement {
+  const searchParams = useSearchParams();
+
   const [filters, setFilters] = useState<EventFilters>({
     search: '',
     categories: [],
@@ -28,6 +31,27 @@ export default function EventsPage(): React.ReactElement {
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
+
+  // Initialize filters from URL parameters on mount
+  useEffect((): void => {
+    const location = searchParams.get('location') || '';
+    const category = searchParams.get('category');
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    const adults = parseInt(searchParams.get('adults') || '0');
+    const children = parseInt(searchParams.get('children') || '0');
+
+    setFilters(prev => ({
+      ...prev,
+      search: location,
+      categories: category ? [category] : [],
+      dateRange: {
+        start: from ? new Date(from) : null,
+        end: to ? new Date(to) : null,
+      },
+      capacity: adults + children || 1,
+    }));
+  }, [searchParams]);
 
   // Fetch events from Supabase
   const { data: events } = useEvents({
@@ -84,5 +108,13 @@ export default function EventsPage(): React.ReactElement {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function EventsPage(): React.ReactElement {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EventsPageContent />
+    </Suspense>
   );
 }

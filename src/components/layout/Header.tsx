@@ -111,9 +111,9 @@ export function Header(): React.ReactElement {
         )}
       >
         {/* Logo */}
-        <Link href="/" className="flex items-center group">
+        <Link href="/" className="flex items-center group ml-2 -mt-1">
           <Image
-            src="/nowtown-logo.png"
+            src="/Logo-Dashboard.png"
             alt="Nowtown"
             width={160}
             height={53}

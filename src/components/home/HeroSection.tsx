@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { APIProvider } from '@vis.gl/react-google-maps';
 import { Search, Calendar as CalendarIcon, Building2, Briefcase, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -15,13 +17,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { GuestSelector } from '@/components/search/GuestSelector';
+import { LocationAutocomplete } from '@/components/search/LocationAutocomplete';
+import { CategorySelector } from '@/components/search/CategorySelector';
+import { buildSearchUrl, type MainCategory } from '@/types/search';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -31,11 +30,18 @@ const categories = [
   { icon: Briefcase, label: 'Services', href: '/services' },
 ];
 
+const searchCategories = ['Events', 'Räume', 'Services'] as const;
+type SearchCategory = typeof searchCategories[number];
+
 const heroImages: string[] = ['/hero1.jpg', '/hero2.jpg', '/hero3.jpg'];
 
 export function HeroSection(): React.ReactElement {
-  const [searchType, setSearchType] = useState<string>('');
-  const [date, setDate] = useState<DateRange | undefined>();
+  const router = useRouter();
+  const [selectedCategory, setSelectedCategory] = useState<SearchCategory>('Events');
+  const [location, setLocation] = useState<string>('');
+  const [subcategory, setSubcategory] = useState<string>('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [guests, setGuests] = useState({ adults: 0, children: 0, pets: 0 });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -76,8 +82,28 @@ export function HeroSection(): React.ReactElement {
     highlightsSection?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleSearch = (): void => {
+    const searchUrl = buildSearchUrl(selectedCategory as MainCategory, {
+      location,
+      subcategory,
+      from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+      to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+      adults: guests.adults,
+      children: guests.children,
+      pets: guests.pets,
+    });
+
+    router.push(searchUrl);
+  };
+
+  // Reset subcategory when main category changes
+  useEffect((): void => {
+    setSubcategory('');
+  }, [selectedCategory]);
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Hero Background Images with Auto-Rotation */}
       <div className="absolute inset-0">
         <AnimatePresence mode="sync">
@@ -116,52 +142,91 @@ export function HeroSection(): React.ReactElement {
             Dein lokales Erlebnis-Netzwerk für Events, Räume und Services
           </p>
 
-          {/* Search Bar - 3 Input Fields */}
+          {/* Category Tabs */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className="max-w-4xl mx-auto mb-4"
+          >
+            <div className="flex items-center gap-8 px-4">
+              {searchCategories.map((category): React.ReactElement => (
+                <button
+                  key={category}
+                  onClick={(): void => setSelectedCategory(category)}
+                  className={`text-base font-medium pb-3 border-b-2 transition-all ${
+                    selectedCategory === category
+                      ? 'border-white text-white'
+                      : 'border-transparent text-white/70 hover:text-white'
+                  }`}
+                  type="button"
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Search Bar - 5 Fields */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.5 }}
             className="max-w-5xl mx-auto mb-8"
           >
-            <div className="bg-white rounded-full shadow-2xl p-2 flex items-center gap-2">
-              {/* Was suchst du Field - Dropdown */}
-              <div className="flex-1 px-4 py-2 border-r border-border">
-                <label className="text-xs font-semibold text-foreground block mb-1">Was suchst du?</label>
-                <Select value={searchType} onValueChange={setSearchType}>
-                  <SelectTrigger className="w-full border-0 bg-transparent p-0 h-auto focus:ring-0 text-sm">
-                    <SelectValue placeholder="Wähle aus..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="events">Events</SelectItem>
-                    <SelectItem value="spaces">Räume</SelectItem>
-                    <SelectItem value="services">Services</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+            <div className="bg-white rounded-full shadow-lg border border-border/50 p-2 flex flex-col lg:flex-row items-stretch lg:items-center gap-0">
               {/* Wohin Field */}
-              <div className="flex-1 px-4 py-2 border-r border-border">
+              <motion.div
+                className="flex-1 px-4 py-3 rounded-full cursor-pointer transition-all"
+                whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}
+                tabIndex={0}
+              >
                 <label className="text-xs font-semibold text-foreground block mb-1">Wohin</label>
-                <input
-                  type="text"
+                <LocationAutocomplete
+                  value={location}
+                  onChange={setLocation}
                   placeholder="Reiseziele suchen"
-                  className="w-full text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground"
                 />
-              </div>
+              </motion.div>
 
-              {/* Wann Field - Date Range Picker */}
-              <div className="flex-1 px-4 py-2">
+              {/* Vertical Divider */}
+              <div className="hidden lg:block w-px h-12 bg-border/50" />
+
+              {/* Kategorie Field - Subcategory Selector */}
+              <motion.div
+                className="flex-1 px-4 py-3 rounded-full cursor-pointer transition-all"
+                whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}
+                tabIndex={0}
+              >
+                <label className="text-xs font-semibold text-foreground block mb-1">Kategorie</label>
+                <CategorySelector
+                  mainCategory={selectedCategory as MainCategory}
+                  value={subcategory}
+                  onChange={setSubcategory}
+                  placeholder="Alle Kategorien"
+                />
+              </motion.div>
+
+              {/* Vertical Divider */}
+              <div className="hidden lg:block w-px h-12 bg-border/50" />
+
+              {/* Wann Field - Date Range */}
+              <motion.div
+                className="flex-1 px-4 py-3 rounded-full cursor-pointer transition-all"
+                whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}
+                tabIndex={0}
+              >
                 <label className="text-xs font-semibold text-foreground block mb-1">Wann</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="w-full text-sm bg-transparent border-0 outline-none text-left flex items-center gap-2">
-                      {date?.from ? (
-                        date.to ? (
+                    <button className="w-full text-sm bg-transparent border-0 outline-none text-left text-foreground" type="button">
+                      {dateRange?.from ? (
+                        dateRange.to ? (
                           <>
-                            {format(date.from, 'dd.MM.yy', { locale: de })} - {format(date.to, 'dd.MM.yy', { locale: de })}
+                            {format(dateRange.from, 'dd.MM.yy', { locale: de })} – {format(dateRange.to, 'dd.MM.yy', { locale: de })}
                           </>
                         ) : (
-                          format(date.from, 'dd.MM.yy', { locale: de })
+                          format(dateRange.from, 'dd.MM.yy', { locale: de })
                         )
                       ) : (
                         <span className="text-muted-foreground">Datum hinzufügen</span>
@@ -170,26 +235,42 @@ export function HeroSection(): React.ReactElement {
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
-                      initialFocus
                       mode="range"
-                      defaultMonth={date?.from}
-                      selected={date}
-                      onSelect={setDate}
-                      numberOfMonths={2}
+                      selected={dateRange}
+                      onSelect={setDateRange}
                       locale={de}
+                      numberOfMonths={2}
+                      disabled={(date): boolean => date < new Date()}
                     />
                   </PopoverContent>
                 </Popover>
-              </div>
+              </motion.div>
 
-              {/* Search Button */}
-              <Button
-                size="lg"
-                className="rounded-full px-6 bg-primary hover:bg-primary/90"
-                aria-label="Suchen"
+              {/* Vertical Divider */}
+              <div className="hidden lg:block w-px h-12 bg-border/50" />
+
+              {/* Wer Field - Guests */}
+              <motion.div
+                className="flex-1 px-4 py-3 rounded-full cursor-pointer transition-all flex items-center gap-3"
+                whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}
+                tabIndex={0}
               >
-                <Search className="h-5 w-5" />
-              </Button>
+                <div className="flex-1">
+                  <label className="text-xs font-semibold text-foreground block mb-1">Wer</label>
+                  <GuestSelector value={guests} onChange={setGuests} />
+                </div>
+
+                {/* Search Button */}
+                <Button
+                  size="icon"
+                  className="rounded-full h-12 w-12 bg-primary hover:bg-primary/90 shrink-0"
+                  aria-label="Suchen"
+                  type="button"
+                  onClick={handleSearch}
+                >
+                  <Search className="h-5 w-5" />
+                </Button>
+              </motion.div>
             </div>
           </motion.div>
 
@@ -206,20 +287,17 @@ export function HeroSection(): React.ReactElement {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.6 + index * 0.1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
               >
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="rounded-full border-2 bg-white/95 hover:border-primary hover:bg-white transition-all backdrop-blur-sm"
-                >
-                  <Link href={category.href} className="flex items-center space-x-2">
-                    <category.icon className="h-5 w-5" />
+                <Link href={category.href}>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full border-2 bg-white/95 hover:border-primary hover:bg-white hover:scale-105 active:scale-95 transition-all backdrop-blur-sm transform-gpu"
+                  >
+                    <category.icon className="h-5 w-5 mr-2" />
                     <span>{category.label}</span>
-                  </Link>
-                </Button>
+                  </Button>
+                </Link>
               </motion.div>
             ))}
           </motion.div>
@@ -244,5 +322,6 @@ export function HeroSection(): React.ReactElement {
         </motion.div>
       </div>
     </section>
+    </APIProvider>
   );
 }
